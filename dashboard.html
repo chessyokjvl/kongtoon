@@ -8,19 +8,15 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    
     <link rel="stylesheet" href="css/style.css">
-    
-    <style> body { font-family: 'Sarabun', sans-serif; background-color: #f8fafc; } </style>
 </head>
-<body class="flex h-screen overflow-hidden">
+<body class="flex h-screen overflow-hidden bg-slate-50">
 
-    <aside class="w-64 bg-slate-800 text-white flex flex-col hidden md:flex transition-all">
+    <aside class="w-64 bg-slate-800 text-white flex flex-col hidden md:flex transition-all shadow-xl z-20">
         <div class="p-5 text-center border-b border-slate-700">
             <h1 class="text-xl font-bold text-blue-400">ระบบจัดการบัญชี</h1>
-            <p class="text-xs text-slate-400 mt-1" id="userDisplay">กำลังตรวจสอบสิทธิ์...</p>
+            <p class="text-xs text-slate-300 mt-1" id="userDisplay">กำลังตรวจสอบสิทธิ์...</p>
         </div>
         <nav class="flex-1 p-4 space-y-2">
             <button onclick="switchModule('Fund')" id="nav-Fund" class="w-full flex items-center p-3 rounded-lg bg-blue-600 transition shadow"><i class="fa-solid fa-vault w-6"></i> บัญชีธนาคาร</button>
@@ -33,109 +29,121 @@
     </aside>
 
     <main class="flex-1 flex flex-col h-full overflow-y-auto">
-        <header class="bg-white shadow-sm p-4 flex justify-between items-center md:hidden">
+        <header class="bg-white shadow-sm p-4 flex justify-between items-center md:hidden z-10 relative">
             <h1 class="font-bold text-lg text-slate-800" id="mobileTitle">บัญชีกองทุนฯ</h1>
-            <button onclick="logout()" class="text-red-500"><i class="fa-solid fa-sign-out-alt"></i></button>
+            <div class="flex gap-4">
+                <button onclick="openMenu()" class="text-blue-600"><i class="fa-solid fa-bars text-xl"></i></button>
+                <button onclick="logout()" class="text-red-500"><i class="fa-solid fa-sign-out-alt text-xl"></i></button>
+            </div>
         </header>
 
-        <div class="p-4 md:p-6">
-            <div class="flex justify-between items-center mb-6">
+        <div id="mobileMenu" class="fixed inset-0 bg-slate-800 text-white z-50 flex flex-col hidden">
+            <div class="flex justify-between p-4 border-b border-slate-700">
+                <h1 class="text-xl font-bold text-blue-400">เลือกระบบ</h1>
+                <button onclick="closeMenu()" class="text-white text-2xl"><i class="fa-solid fa-times"></i></button>
+            </div>
+            <nav class="flex-1 p-4 space-y-2">
+                <button onclick="switchModule('Fund'); closeMenu()" class="w-full text-left p-4 bg-slate-700 rounded-lg"><i class="fa-solid fa-vault mr-2"></i> กองทุนผู้ป่วยฯ</button>
+                <button onclick="switchModule('Cafe'); closeMenu()" class="w-full text-left p-4 bg-slate-700 rounded-lg"><i class="fa-solid fa-mug-hot mr-2"></i> ร้านกาแฟสุขใจ</button>
+                <button onclick="switchModule('Shop'); closeMenu()" class="w-full text-left p-4 bg-slate-700 rounded-lg"><i class="fa-solid fa-store mr-2"></i> ร้านผลิตภัณฑ์</button>
+            </nav>
+        </div>
+
+        <div class="p-4 md:p-6 pb-20">
+            <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
                 <h2 class="text-2xl font-bold text-slate-800" id="moduleTitle">บัญชีกองทุนเพื่อผู้ป่วยจิตเวชยากไร้</h2>
-                <button id="btnAdd" onclick="openModal()" class="hidden bg-blue-600 text-white px-4 py-2 rounded-lg shadow hover:bg-blue-700 transition"><i class="fa-solid fa-plus mr-2"></i>บันทึกรายการ</button>
+                <button id="btnAdd" onclick="openModal()" class="hidden bg-blue-600 text-white px-5 py-2.5 rounded-lg shadow hover:bg-blue-700 transition w-full md:w-auto"><i class="fa-solid fa-plus mr-2"></i>บันทึกรายการ</button>
             </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
                 <div class="bg-white p-4 rounded-xl shadow-sm border-l-4 border-green-500">
-                    <p class="text-sm text-slate-500">รายรับรวม (ยอดขาย)</p>
-                    <h3 class="text-2xl font-bold text-green-600" id="c_income">฿0.00</h3>
+                    <p class="text-xs md:text-sm text-slate-500">รายรับรวม (ยอดขาย)</p>
+                    <h3 class="text-lg md:text-2xl font-bold text-green-600 mt-1" id="c_income">฿0.00</h3>
                 </div>
                 <div class="bg-white p-4 rounded-xl shadow-sm border-l-4 border-red-500">
-                    <p class="text-sm text-slate-500">รายจ่ายรวม</p>
-                    <h3 class="text-2xl font-bold text-red-600" id="c_expense">฿0.00</h3>
+                    <p class="text-xs md:text-sm text-slate-500">รายจ่ายรวม</p>
+                    <h3 class="text-lg md:text-2xl font-bold text-red-600 mt-1" id="c_expense">฿0.00</h3>
                 </div>
                 <div class="bg-white p-4 rounded-xl shadow-sm border-l-4 border-blue-500">
-                    <p class="text-sm text-slate-500">กำไรสุทธิ</p>
-                    <h3 class="text-2xl font-bold text-blue-600" id="c_profit">฿0.00</h3>
+                    <p class="text-xs md:text-sm text-slate-500">กำไรสุทธิ</p>
+                    <h3 class="text-lg md:text-2xl font-bold text-blue-600 mt-1" id="c_profit">฿0.00</h3>
                 </div>
                 <div class="bg-white p-4 rounded-xl shadow-sm border-l-4 border-amber-500">
-                    <p class="text-sm text-slate-500">เงินสดคงเหลือ</p>
-                    <h3 class="text-2xl font-bold text-amber-600" id="c_cash">฿0.00</h3>
+                    <p class="text-xs md:text-sm text-slate-500">เงินสดคงเหลือ</p>
+                    <h3 class="text-lg md:text-2xl font-bold text-amber-600 mt-1" id="c_cash">฿0.00</h3>
                 </div>
             </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                <div class="bg-white p-4 rounded-xl shadow-sm">
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+                <div class="bg-white p-4 rounded-xl shadow-sm lg:col-span-2">
                     <h4 class="text-center font-semibold mb-2 text-slate-700">รายรับ - รายจ่าย - กำไร</h4>
-                    <div style="height: 300px;"><canvas id="mainChart"></canvas></div>
+                    <div style="position: relative; height: 300px; width: 100%;"><canvas id="mainChart"></canvas></div>
                 </div>
-                <div class="grid grid-cols-2 gap-4">
-                    <div class="bg-white p-4 rounded-xl shadow-sm">
-                        <h4 class="text-center font-semibold mb-2 text-slate-700 text-sm">สัดส่วนรายรับ</h4>
-                        <div style="height: 250px;"><canvas id="incPieChart"></canvas></div>
-                    </div>
-                    <div class="bg-white p-4 rounded-xl shadow-sm">
-                        <h4 class="text-center font-semibold mb-2 text-slate-700 text-sm">สัดส่วนรายจ่าย</h4>
-                        <div style="height: 250px;"><canvas id="expPieChart"></canvas></div>
-                    </div>
+                <div class="bg-white p-4 rounded-xl shadow-sm">
+                    <h4 class="text-center font-semibold mb-2 text-slate-700">สัดส่วนรายรับ</h4>
+                    <div style="position: relative; height: 130px; width: 100%;"><canvas id="incPieChart"></canvas></div>
+                    <h4 class="text-center font-semibold mt-4 mb-2 text-slate-700">สัดส่วนรายจ่าย</h4>
+                    <div style="position: relative; height: 130px; width: 100%;"><canvas id="expPieChart"></canvas></div>
                 </div>
             </div>
 
             <div class="bg-white rounded-xl shadow-sm overflow-hidden">
                 <div class="p-4 bg-slate-50 border-b flex justify-between items-center">
-                    <h3 class="font-bold text-slate-700">รายการรับ-จ่ายล่าสุด</h3>
-                    <button onclick="fetchData()" class="text-sm text-blue-600 hover:underline"><i class="fa-solid fa-rotate"></i> รีเฟรช</button>
+                    <h3 class="font-bold text-slate-700">รายการรับ-จ่าย</h3>
+                    <button onclick="fetchData()" class="text-sm text-blue-600 hover:text-blue-800"><i class="fa-solid fa-rotate mr-1"></i>รีเฟรช</button>
                 </div>
                 <div class="overflow-x-auto">
-                    <table class="w-full text-left text-sm text-slate-600">
+                    <table class="w-full text-left text-sm text-slate-600 min-w-[800px]">
                         <thead class="bg-slate-100 text-slate-800">
                             <tr>
-                                <th class="p-3">วันที่</th><th class="p-3">ประเภท</th><th class="p-3">รายการ</th>
-                                <th class="p-3 text-right">จำนวนเงิน</th><th class="p-3 text-center">หลักฐาน</th><th class="p-3 text-center">จัดการ</th>
+                                <th class="p-4 w-24">วันที่</th>
+                                <th class="p-4 w-24">ประเภท</th>
+                                <th class="p-4">รายการ / หมายเหตุ</th>
+                                <th class="p-4 w-32 text-right">จำนวนเงิน</th>
+                                <th class="p-4 w-28 text-center">หลักฐาน</th>
+                                <th class="p-4 w-24 text-center">จัดการ</th>
                             </tr>
                         </thead>
                         <tbody id="tableBody" class="divide-y">
-                            </tbody>
+                            <tr><td colspan="6" class="p-6 text-center text-slate-500">กำลังเตรียมระบบ...</td></tr>
+                        </tbody>
                     </table>
                 </div>
             </div>
         </div>
     </main>
 
-    <div id="txModal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex justify-center items-center z-50 p-4">
+    <div id="txModal" class="fixed inset-0 bg-black bg-opacity-60 hidden flex justify-center items-center z-50 p-4">
         <div class="bg-white w-full max-w-lg rounded-xl shadow-2xl p-6 overflow-y-auto max-h-[90vh]">
-            <div class="flex justify-between items-center mb-4">
+            <div class="flex justify-between items-center mb-6 border-b pb-3">
                 <h3 class="text-xl font-bold text-slate-800" id="modalTitle">บันทึกรายการ</h3>
-                <button onclick="closeModal()" class="text-slate-400 hover:text-red-500"><i class="fa-solid fa-times text-xl"></i></button>
+                <button onclick="closeModal()" class="text-slate-400 hover:text-red-500 transition"><i class="fa-solid fa-times text-2xl"></i></button>
             </div>
             <form id="txForm" onsubmit="submitForm(event)">
                 <input type="hidden" id="f_id">
                 <div class="grid grid-cols-2 gap-4 mb-4">
-                    <div><label class="block text-sm mb-1">วันที่</label><input type="date" id="f_date" required class="w-full border rounded-lg p-2"></div>
-                    <div><label class="block text-sm mb-1">ประเภท</label>
-                        <select id="f_type" required class="w-full border rounded-lg p-2"><option value="รายรับ">รายรับ</option><option value="รายจ่าย">รายจ่าย</option></select>
-                    </div>
+                    <div><label class="block text-sm font-medium mb-1">วันที่</label><input type="date" id="f_date" required class="w-full border rounded-lg p-2.5 focus:ring-2 outline-none"></div>
+                    <div><label class="block text-sm font-medium mb-1">ประเภท</label><select id="f_type" onchange="updateItemOptions()" required class="w-full border rounded-lg p-2.5 focus:ring-2 outline-none"><option value="รายรับ">รายรับ</option><option value="รายจ่าย">รายจ่าย</option></select></div>
                 </div>
                 <div class="grid grid-cols-2 gap-4 mb-4">
-                    <div><label class="block text-sm mb-1">รายการ</label>
-                        <select id="f_item" required class="w-full border rounded-lg p-2">
-                            <option value="ขายสินค้า">ขายสินค้า</option><option value="ซื้อของ">ค่าใช้จ่ายซื้อของ</option><option value="เงินเดือน">เงินเดือนคนขาย</option><option value="ถอนเงินกองทุน">ถอนเงินกองทุน</option><option value="ยอดยกมา">ยอดยกมา</option>
-                        </select>
-                    </div>
-                    <div><label class="block text-sm mb-1">ช่องทาง</label>
-                        <select id="f_method" class="w-full border rounded-lg p-2"><option value="-">-</option><option value="เงินสด">เงินสด</option><option value="เงินโอน">เงินโอน</option></select>
-                    </div>
+                    <div><label class="block text-sm font-medium mb-1">รายการ</label><select id="f_item" required class="w-full border rounded-lg p-2.5 focus:ring-2 outline-none"></select></div>
+                    <div><label class="block text-sm font-medium mb-1">ช่องทาง</label><select id="f_method" class="w-full border rounded-lg p-2.5 focus:ring-2 outline-none"><option value="-">-</option><option value="เงินสด">เงินสด</option><option value="เงินโอน">เงินโอน</option></select></div>
                 </div>
-                <div class="mb-4"><label class="block text-sm mb-1">จำนวนเงิน (บาท)</label><input type="number" step="0.01" id="f_amount" required class="w-full border rounded-lg p-2"></div>
-                <div class="mb-4"><label class="block text-sm mb-1">หมายเหตุ</label><input type="text" id="f_note" class="w-full border rounded-lg p-2"></div>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium mb-1">จำนวนเงิน (บาท)</label>
+                    <input type="number" step="0.01" id="f_amount" required class="w-full border rounded-lg p-2.5 focus:ring-2 outline-none text-lg font-semibold text-blue-600">
+                </div>
+                <div class="mb-4"><label class="block text-sm font-medium mb-1">หมายเหตุ</label><input type="text" id="f_note" placeholder="รายละเอียดเพิ่มเติม..." class="w-full border rounded-lg p-2.5 focus:ring-2 outline-none"></div>
                 
-                <div class="mb-6 p-3 bg-slate-50 border rounded-lg">
-                    <label class="block text-sm font-semibold mb-2">หลักฐาน (รูปภาพ/PDF หรือ ลิงก์)</label>
-                    <select id="f_eviType" onchange="toggleEvi()" class="w-full border rounded-lg p-2 mb-2"><option value="file">อัปโหลดไฟล์ (ไม่เกิน 5MB)</option><option value="link">วางลิงก์เอกสาร</option></select>
-                    <input type="file" id="f_file" accept="image/*,.pdf" class="w-full text-sm">
-                    <input type="url" id="f_link" placeholder="https://..." class="w-full border rounded-lg p-2 hidden">
+                <div class="mb-6 p-4 bg-slate-50 border rounded-lg">
+                    <label class="block text-sm font-semibold mb-2">หลักฐานอ้างอิง</label>
+                    <select id="f_eviType" onchange="toggleEvi()" class="w-full border rounded-lg p-2 mb-3"><option value="file">อัปโหลดไฟล์ภาพ/PDF (ไม่เกิน 5MB)</option><option value="link">วางลิงก์เอกสาร Google Drive</option></select>
+                    <input type="file" id="f_file" accept="image/*,.pdf" class="w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:bg-blue-100 file:text-blue-700 hover:file:bg-blue-200">
+                    <input type="url" id="f_link" placeholder="https://..." class="w-full border rounded-lg p-2.5 hidden">
+                    <p class="text-xs text-red-500 mt-2 italic">*หากเลือกแนบไฟล์ การบันทึกอาจใช้เวลา 5-10 วินาที</p>
                 </div>
 
-                <button type="submit" id="btnSave" class="w-full bg-blue-600 text-white py-2 rounded-lg font-semibold hover:bg-blue-700 transition">บันทึกข้อมูล</button>
+                <button type="submit" id="btnSave" class="w-full bg-blue-600 text-white py-3 rounded-lg font-bold text-lg hover:bg-blue-700 transition shadow-lg">บันทึกข้อมูล</button>
             </form>
         </div>
     </div>
