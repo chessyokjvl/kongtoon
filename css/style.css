@@ -1,0 +1,24 @@
+/* css/style.css */
+body { 
+    font-family: 'Sarabun', sans-serif; 
+    background-color: #f8fafc; 
+}
+
+.hidden-form { 
+    display: none; 
+}
+
+/* ตั้งค่าสำหรับการ Print รายงาน */
+@media print {
+    body * { visibility: hidden; }
+    #printableReport, #printableReport * { visibility: visible; }
+    #printableReport { position: absolute; left: 0; top: 0; width: 100%; padding: 20px; }
+    .no-print { display: none !important; }
+    .table-bordered, .table-bordered td, .table-bordered th { border: 1px solid #000 !important; }
+}
+
+/* สีพื้นหลังสำหรับตารางรายงาน */
+.bg-light-yellow { background-color: #fff4cc !important; }
+.bg-light-orange { background-color: #ffdeb3 !important; }
+.bg-light-green { background-color: #d4edda !important; }
+.bg-light-blue { background-color: #cce5ff !important; }
