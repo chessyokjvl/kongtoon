@@ -57,3 +57,39 @@ async function doAuth(e, action) {
         btn.disabled = false; 
     }
 }
+if (sessionStorage.getItem('user')) { window.location.href = 'dashboard.html'; }
+
+function toggleForm(showId) {
+    ['loginForm', 'regForm', 'forgotForm'].forEach(id => { document.getElementById(id).classList.add('hidden-form'); });
+    document.getElementById(showId).classList.remove('hidden-form');
+}
+
+// ฟังก์ชันจำลองการเข้าระบบของ Guest
+function guestLogin() {
+    sessionStorage.setItem('user', JSON.stringify({ username: 'Guest', role: 'Guest' }));
+    window.location.href = 'dashboard.html';
+}
+
+async function doAuth(e, action) {
+    e.preventDefault();
+    const btn = e.target.querySelector('button');
+    const ogText = btn.innerText; btn.innerText = 'กำลังประมวลผล...'; btn.disabled = true;
+
+    let payload = {};
+    if (action === 'login') payload = { username: l_user.value, password: l_pass.value };
+    else if (action === 'register') payload = { username: r_user.value, email: r_email.value, password: r_pass.value, pdpa: r_pdpa.checked };
+    else if (action === 'forgot_password') payload = { email: f_email.value };
+
+    try {
+        const res = await (await fetch(CONFIG.API_URL, { method: 'POST', body: JSON.stringify({ action, payload }) })).json();
+        if (res.status === 'success') {
+            if (action === 'login') {
+                sessionStorage.setItem('user', JSON.stringify(res.user));
+                window.location.href = 'dashboard.html';
+            } else {
+                Swal.fire('สำเร็จ', res.message, 'success'); toggleForm('loginForm'); e.target.reset();
+            }
+        } else Swal.fire('ข้อผิดพลาด', res.message, 'error');
+    } catch (err) { Swal.fire('Error', 'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้', 'error'); } 
+    finally { btn.innerText = ogText; btn.disabled = false; }
+}
