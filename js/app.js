@@ -182,53 +182,56 @@ function renderData() {
     
     let opInc = 0, opExp = 0, capIn = 0, capOut = 0;
     
-    if (rawData.length === 0) {
-        return tb.innerHTML = '<tr><td colspan="6" class="p-8 text-center text-slate-500 bg-slate-50">ไม่มีข้อมูลในช่วงเวลานี้</td></tr>';
+    // ถ้ามีข้อมูล ให้วนลูปคำนวณและสร้างตาราง
+    if (rawData.length > 0) {
+        rawData.forEach(r => {
+            let amt = Number(r.amount);
+            let isCapIn = (r.item === 'ยอดยกมา' || r.item === 'ถอนเงินกองทุน' || r.item === 'เงินฝากธนาคาร');
+            let isCapOut = (r.item === 'คืนเงินกองทุน' || r.item === 'ถอนเงินจากธนาคาร');
+
+            // แยกทุน กับ การดำเนินงาน
+            if (r.type === 'รายรับ') {
+                if (isCapIn) capIn += amt; else opInc += amt;
+            } else {
+                if (isCapOut) capOut += amt; else opExp += amt;
+            }
+            
+            let eviHtml = r.evidence ? `<a href="${r.evidence}" target="_blank" class="inline-flex items-center gap-1 px-3 py-1 bg-blue-50 text-blue-600 rounded-full hover:bg-blue-100 text-xs font-medium"><i class="fa-solid fa-file-pdf"></i> ไฟล์</a>` : '-';
+            
+            let actionHtml = '-';
+            if (currentUser.role === 'God_Admin' || currentUser.role === `Admin_${currentModule}`) {
+                actionHtml = `
+                    <div class="flex justify-center gap-2">
+                        <button onclick='editTx(${JSON.stringify(r)})' class="w-8 h-8 rounded-full bg-amber-50 text-amber-500 hover:bg-amber-100 transition"><i class="fa-solid fa-pen"></i></button>
+                        <button onclick="deleteTx('${r.id}')" class="w-8 h-8 rounded-full bg-red-50 text-red-500 hover:bg-red-100 transition"><i class="fa-solid fa-trash"></i></button>
+                    </div>`;
+            }
+            
+            let trClass = (isCapIn || isCapOut) ? 'bg-slate-100/50 text-slate-500' : 'hover:bg-slate-50 text-slate-800';
+            
+            tb.innerHTML += `
+                <tr class="${trClass} transition border-b border-slate-50">
+                    <td class="p-3 md:p-4">${r.date}</td>
+                    <td class="p-3 md:p-4"><span class="px-2.5 py-1 text-xs font-medium rounded-full ${r.type==='รายรับ'?'bg-green-100 text-green-700':'bg-red-100 text-red-700'}">${r.type}</span></td>
+                    <td class="p-3 md:p-4"><p class="font-medium">${r.item}</p><p class="text-xs text-slate-500">${r.note || ''}</p></td>
+                    <td class="p-3 md:p-4 text-right font-semibold ${r.type==='รายรับ'?'text-green-600':'text-red-600'}">฿${amt.toLocaleString('th-TH')}</td>
+                    <td class="p-3 md:p-4 text-center">${eviHtml}</td>
+                    <td class="p-3 md:p-4 text-center">${actionHtml}</td>
+                </tr>`;
+        });
+    } else {
+        // ถ้าไม่มีข้อมูล ให้แสดงข้อความแจ้งเตือนในตาราง
+        tb.innerHTML = '<tr><td colspan="6" class="p-8 text-center text-slate-500 bg-slate-50">ไม่มีข้อมูลในช่วงเวลานี้</td></tr>';
     }
 
-    rawData.forEach(r => {
-        let amt = Number(r.amount);
-        let isCapIn = (r.item === 'ยอดยกมา' || r.item === 'ถอนเงินกองทุน');
-        let isCapOut = (r.item === 'คืนเงินกองทุน');
-
-        // แยกทุน กับ การดำเนินงาน
-        if (r.type === 'รายรับ') {
-            if (isCapIn) capIn += amt; else opInc += amt;
-        } else {
-            if (isCapOut) capOut += amt; else opExp += amt;
-        }
-        
-        let eviHtml = r.evidence ? `<a href="${r.evidence}" target="_blank" class="inline-flex items-center gap-1 px-3 py-1 bg-blue-50 text-blue-600 rounded-full hover:bg-blue-100 text-xs font-medium"><i class="fa-solid fa-file-pdf"></i> ไฟล์</a>` : '-';
-        
-        let actionHtml = '-';
-        if (currentUser.role === 'God_Admin' || currentUser.role === `Admin_${currentModule}`) {
-            actionHtml = `
-                <div class="flex justify-center gap-2">
-                    <button onclick='editTx(${JSON.stringify(r)})' class="w-8 h-8 rounded-full bg-amber-50 text-amber-500 hover:bg-amber-100 transition"><i class="fa-solid fa-pen"></i></button>
-                    <button onclick="deleteTx('${r.id}')" class="w-8 h-8 rounded-full bg-red-50 text-red-500 hover:bg-red-100 transition"><i class="fa-solid fa-trash"></i></button>
-                </div>`;
-        }
-        
-        let trClass = (isCapIn || isCapOut) ? 'bg-slate-100/50 text-slate-500' : 'hover:bg-slate-50 text-slate-800';
-        
-        tb.innerHTML += `
-            <tr class="${trClass} transition border-b border-slate-50">
-                <td class="p-3 md:p-4">${r.date}</td>
-                <td class="p-3 md:p-4"><span class="px-2.5 py-1 text-xs font-medium rounded-full ${r.type==='รายรับ'?'bg-green-100 text-green-700':'bg-red-100 text-red-700'}">${r.type}</span></td>
-                <td class="p-3 md:p-4"><p class="font-medium">${r.item}</p><p class="text-xs text-slate-500">${r.note || ''}</p></td>
-                <td class="p-3 md:p-4 text-right font-semibold ${r.type==='รายรับ'?'text-green-600':'text-red-600'}">฿${amt.toLocaleString('th-TH')}</td>
-                <td class="p-3 md:p-4 text-center">${eviHtml}</td>
-                <td class="p-3 md:p-4 text-center">${actionHtml}</td>
-            </tr>`;
-    });
-
+    // *** อัปเดตตัวเลขการ์ดตรงนี้เสมอ (ไม่ว่าจะว่างหรือไม่ว่าง ก็จะรีเซ็ตค่าเป็นปัจจุบัน) ***
     const fmt = n => `฿${Number(n).toLocaleString('th-TH')}`;
     
     document.getElementById('c_card1').innerText = fmt(opInc);
-    document.getElementById('c_sub1').innerText = `+ ทุน/ยอดยกมา: ${fmt(capIn)}`;
+    document.getElementById('c_sub1').innerText = `+ ทุน/รับเข้า: ${fmt(capIn)}`;
 
     document.getElementById('c_card2').innerText = fmt(opExp);
-    document.getElementById('c_sub2').innerText = `+ คืนทุนกองทุน: ${fmt(capOut)}`;
+    document.getElementById('c_sub2').innerText = `+ จ่ายออก/คืนทุน: ${fmt(capOut)}`;
 
     document.getElementById('c_card3').innerText = fmt(opInc - opExp);
     document.getElementById('c_card4').innerText = fmt((opInc + capIn) - (opExp + capOut));
