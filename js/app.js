@@ -1,12 +1,10 @@
-// js/app.js
-
 let currentUser = JSON.parse(sessionStorage.getItem('user'));
 if (!currentUser) window.location.href = 'index.html'; 
 
 let currentModule = 'Overview';
 let rawData = [];
 
-// ตั้งค่าหัวข้อการ์ดให้ตรงตามบริบทบัญชีของแต่ละแผนก
+// กำหนดหัวข้อและคำอธิบายการ์ดให้ตรงตามบริบทของแต่ละฝ่าย
 const moduleLabels = {
     Fund: { title: 'บัญชีหลัก: กองทุนเพื่อผู้ป่วยจิตเวชยากไร้', c1: 'ยอดยกมา / รับเข้า', c2: 'จ่ายออก / สนับสนุน', c3: 'ส่วนต่างเงินทุน', c4: 'คงเหลือในบัญชี' },
     Cafe: { title: 'หน่วยลงทุน: ร้านกาแฟสุขใจ', c1: 'ยอดขาย / รายรับ', c2: 'ต้นทุน / ค่าใช้จ่าย', c3: 'กำไรสุทธิ', c4: 'เงินสดหมุนเวียน' },
@@ -26,14 +24,12 @@ function toggleSidebar() {
 function switchModule(mod) {
     currentModule = mod;
     
-    // จัดการสีปุ่มเมนู
     document.querySelectorAll('aside nav button').forEach(b => { 
         b.classList.remove('bg-blue-600'); b.classList.add('hover:bg-slate-700'); 
     });
     document.getElementById(`nav-${mod}`).classList.add('bg-blue-600');
     document.getElementById(`nav-${mod}`).classList.remove('hover:bg-slate-700');
 
-    // ซ่อนเมนูบนมือถือเมื่อกดเลือก
     if (window.innerWidth < 768) {
         document.getElementById('sidebar').classList.add('-translate-x-full');
         document.getElementById('mobileOverlay').classList.add('hidden');
@@ -41,19 +37,17 @@ function switchModule(mod) {
 
     const btnAdd = document.getElementById('btnAdd');
 
-    // สลับ View ระหว่าง ภาพรวม (Overview) กับ หน้าจัดการข้อมูล (Modules)
     if (mod === 'Overview') {
         document.getElementById('overviewSection').classList.remove('hidden');
         document.getElementById('moduleSection').classList.add('hidden');
         document.getElementById('moduleTitle').innerText = 'ภาพรวมบัญชีกองทุนและหน่วยลงทุน';
         document.getElementById('mobileTitle').innerText = 'ภาพรวมกองทุน';
-        btnAdd.classList.add('hidden'); // ซ่อนปุ่มแอดข้อมูลในหน้าภาพรวม
+        btnAdd.classList.add('hidden'); 
         fetchOverview();
     } else {
         document.getElementById('overviewSection').classList.add('hidden');
         document.getElementById('moduleSection').classList.remove('hidden');
         
-        // อัปเดตข้อความบน Header และ Cards ให้ตรงกับแผนก
         document.getElementById('moduleTitle').innerText = moduleLabels[mod].title;
         document.getElementById('mobileTitle').innerText = moduleLabels[mod].title;
         document.getElementById('lbl_card1').innerText = moduleLabels[mod].c1;
@@ -61,7 +55,6 @@ function switchModule(mod) {
         document.getElementById('lbl_card3').innerText = moduleLabels[mod].c3;
         document.getElementById('lbl_card4').innerText = moduleLabels[mod].c4;
 
-        // เช็คสิทธิ์การแก้ไขข้อมูล
         if (currentUser.role === 'God_Admin' || currentUser.role === `Admin_${mod}`) {
             btnAdd.classList.remove('hidden');
         } else {
@@ -71,19 +64,15 @@ function switchModule(mod) {
     }
 }
 
-// --- ดึงข้อมูลสำหรับหน้า Overview (ภาพรวม) ---
 async function fetchOverview() {
     Swal.showLoading();
     try {
         const res = await (await fetch(CONFIG.API_URL, { method: 'POST', body: JSON.stringify({ action: 'get_overview' }) })).json();
         if (res.status === 'success') {
             const fmt = n => `฿${Number(n).toLocaleString('th-TH')}`;
-            // บัญชีหลักกองทุน
             document.getElementById('o_fundBal').innerText = fmt(res.data.fund.bal);
             document.getElementById('o_fundInc').innerText = fmt(res.data.fund.inc);
             document.getElementById('o_fundExp').innerText = fmt(res.data.fund.exp);
-            
-            // ร้านค้า
             document.getElementById('o_cafeBal').innerText = fmt(res.data.cafe.bal);
             document.getElementById('o_shopBal').innerText = fmt(res.data.shop.bal);
             Swal.close();
@@ -91,7 +80,6 @@ async function fetchOverview() {
     } catch (err) { Swal.fire('Error', 'ไม่สามารถโหลดภาพรวมได้', 'error'); }
 }
 
-// --- ดึงข้อมูลสำหรับหน้า Modules ย่อย ---
 async function fetchData() {
     document.getElementById('tableBody').innerHTML = '<tr><td colspan="6" class="p-4 text-center py-10"><i class="fa-solid fa-spinner fa-spin text-blue-500 text-3xl mb-2"></i><br>กำลังโหลด...</td></tr>';
     try {
@@ -135,10 +123,9 @@ function renderData() {
     document.getElementById('c_card1').innerText = fmt(inc);
     document.getElementById('c_card2').innerText = fmt(exp);
     document.getElementById('c_card3').innerText = fmt(inc - exp);
-    document.getElementById('c_card4').innerText = fmt(inc - exp); // (ในอนาคตปรับแต่งการหักยอดเงินโอนได้ที่จุดนี้)
+    document.getElementById('c_card4').innerText = fmt(inc - exp);
 }
 
-// --- การจัดการฟอร์ม ---
 function toggleEvi() {
     if(document.getElementById('f_eviType').value === 'file') {
         document.getElementById('f_file').classList.remove('hidden'); document.getElementById('f_link').classList.add('hidden');
@@ -176,7 +163,7 @@ async function submitForm(e) {
 
     try {
         const res = await (await fetch(CONFIG.API_URL, { method: 'POST', body: JSON.stringify({ action: 'save_tx', payload }) })).json();
-        if (res.status === 'success') { Swal.fire({title: 'สำเร็จ', text: res.message, icon: 'success', timer: 1500, showConfirmButton: false}); closeModal(); fetchData(); }
+        if (res.status === 'success') { Swal.fire({title: 'สำเร็จ', text: res.message, icon: 'success', timer: 1500, showConfirmButton: false}); closeModal(); switchModule(currentModule); }
         else Swal.fire('ผิดพลาด', res.message, 'error');
     } catch (err) { Swal.fire('Error', 'ไม่สามารถเชื่อมต่อได้', 'error'); }
     finally { btn.innerText = 'บันทึกข้อมูล'; btn.disabled = false; }
@@ -195,7 +182,7 @@ function deleteTx(id) {
     .then(async (result) => {
         if (result.isConfirmed) {
             const res = await (await fetch(CONFIG.API_URL, { method: 'POST', body: JSON.stringify({ action: 'delete_tx', payload: { module: currentModule, rowIndex: id } }) })).json();
-            if(res.status === 'success') { Swal.fire({title: 'ลบแล้ว!', icon: 'success', timer: 1500, showConfirmButton: false}); fetchData(); } 
+            if(res.status === 'success') { Swal.fire({title: 'ลบแล้ว!', icon: 'success', timer: 1500, showConfirmButton: false}); switchModule(currentModule); } 
             else Swal.fire('ผิดพลาด', res.message, 'error');
         }
     });
