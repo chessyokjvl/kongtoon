@@ -1,24 +1,26 @@
-/* css/style.css */
-body { 
-    font-family: 'Sarabun', sans-serif; 
-    background-color: #f8fafc; 
+@import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap');
+
+body {
+    font-family: 'Sarabun', sans-serif;
 }
 
-.hidden-form { 
-    display: none; 
+/* ซ่อน Scrollbar แต่ยังเลื่อนได้ */
+::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+::-webkit-scrollbar-track {
+    background: #f1f5f9; 
+}
+::-webkit-scrollbar-thumb {
+    background: #cbd5e1; 
+    border-radius: 10px;
+}
+::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8; 
 }
 
-/* ตั้งค่าสำหรับการ Print รายงาน */
-@media print {
-    body * { visibility: hidden; }
-    #printableReport, #printableReport * { visibility: visible; }
-    #printableReport { position: absolute; left: 0; top: 0; width: 100%; padding: 20px; }
-    .no-print { display: none !important; }
-    .table-bordered, .table-bordered td, .table-bordered th { border: 1px solid #000 !important; }
+/* คลาสสำหรับซ่อน Form ในหน้า Login */
+.hidden-form {
+    display: none !important;
 }
-
-/* สีพื้นหลังสำหรับตารางรายงาน */
-.bg-light-yellow { background-color: #fff4cc !important; }
-.bg-light-orange { background-color: #ffdeb3 !important; }
-.bg-light-green { background-color: #d4edda !important; }
-.bg-light-blue { background-color: #cce5ff !important; }
