@@ -3,13 +3,17 @@ if (sessionStorage.getItem('user')) {
     window.location.href = 'dashboard.html'; 
 }
 
-// ฟังก์ชันสลับหน้าฟอร์ม (ใช้คลาส hidden ของ Tailwind)
+// ฟังก์ชันสลับหน้าฟอร์ม (เปลี่ยนมาใช้ style.display แบบเด็ดขาด)
 function toggleForm(showId) {
     const forms = ['loginForm', 'regForm', 'forgotForm'];
+    
+    // ซ่อนทุกอันก่อน
     forms.forEach(id => { 
-        document.getElementById(id).classList.add('hidden'); 
+        document.getElementById(id).style.display = 'none'; 
     });
-    document.getElementById(showId).classList.remove('hidden');
+    
+    // โชว์เฉพาะอันที่เลือก
+    document.getElementById(showId).style.display = 'block';
 }
 
 // ฟังก์ชันสำหรับ Guest
@@ -28,7 +32,6 @@ async function doAuth(e, action) {
 
     let payload = {};
     
-    // ดึงข้อมูลจากฟอร์มอย่างรัดกุม
     if (action === 'login') {
         payload = { 
             username: document.getElementById('l_user').value, 
