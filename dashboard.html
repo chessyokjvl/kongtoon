@@ -63,47 +63,63 @@
             <div id="overviewSection" class="hidden">
                 <div class="bg-gradient-to-r from-blue-600 to-indigo-700 rounded-2xl shadow-lg p-6 md:p-10 mb-6 text-white text-center md:text-left flex flex-col md:flex-row justify-between items-center">
                     <div>
-                        <p class="text-blue-100 text-lg mb-1"><i class="fa-solid fa-vault mr-2"></i> สถานะกระเป๋าหลัก (กองทุนเพื่อผู้ป่วยจิตเวชยากไร้)</p>
+                        <p class="text-blue-100 text-lg mb-1"><i class="fa-solid fa-vault mr-2"></i> เงินสดคงเหลือกระเป๋าหลัก (กองทุนฯ)</p>
                         <h2 class="text-4xl md:text-6xl font-bold tracking-tight" id="o_fundBal">฿0.00</h2>
                     </div>
                     <div class="mt-6 md:mt-0 bg-white/20 p-4 rounded-xl text-center min-w-[200px]">
-                        <p class="text-sm text-blue-100">รายรับรวม: <span id="o_fundInc" class="font-bold">฿0</span></p>
-                        <p class="text-sm text-blue-100 mt-2">รายจ่ายรวม: <span id="o_fundExp" class="font-bold text-red-200">฿0</span></p>
+                        <p class="text-sm text-blue-100">กำไรจากการดำเนินงานกองทุน</p>
+                        <p class="text-2xl font-bold text-white mt-1" id="o_fundProfit">฿0.00</p>
                     </div>
                 </div>
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                     <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex justify-between items-center">
-                        <div><h4 class="text-slate-500 font-semibold mb-1"><i class="fa-solid fa-mug-hot text-amber-600 mr-2"></i>ร้านกาแฟสุขใจ</h4><p class="text-3xl font-bold text-slate-800" id="o_cafeBal">฿0.00</p><p class="text-xs text-slate-400 mt-1">กำไร/ขาดทุน สะสม</p></div>
+                        <div><h4 class="text-slate-500 font-semibold mb-1"><i class="fa-solid fa-mug-hot text-amber-600 mr-2"></i>ร้านกาแฟสุขใจ</h4><p class="text-3xl font-bold text-slate-800" id="o_cafeBal">฿0.00</p><p class="text-xs text-slate-400 mt-1">กำไร/ขาดทุน สะสม (ดำเนินงาน)</p></div>
                         <div class="w-12 h-12 bg-amber-100 rounded-full flex items-center justify-center"><i class="fa-solid fa-store text-amber-600 text-xl"></i></div>
                     </div>
                     <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex justify-between items-center">
-                        <div><h4 class="text-slate-500 font-semibold mb-1"><i class="fa-solid fa-store text-emerald-600 mr-2"></i>ร้านผลิตภัณฑ์ผู้ป่วย</h4><p class="text-3xl font-bold text-slate-800" id="o_shopBal">฿0.00</p><p class="text-xs text-slate-400 mt-1">กำไร/ขาดทุน สะสม</p></div>
+                        <div><h4 class="text-slate-500 font-semibold mb-1"><i class="fa-solid fa-store text-emerald-600 mr-2"></i>ร้านผลิตภัณฑ์ผู้ป่วย</h4><p class="text-3xl font-bold text-slate-800" id="o_shopBal">฿0.00</p><p class="text-xs text-slate-400 mt-1">กำไร/ขาดทุน สะสม (ดำเนินงาน)</p></div>
                         <div class="w-12 h-12 bg-emerald-100 rounded-full flex items-center justify-center"><i class="fa-solid fa-gift text-emerald-600 text-xl"></i></div>
                     </div>
                 </div>
 
                 <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 mb-6">
-                    <h3 class="text-lg font-bold text-slate-700 mb-4 text-center">กราฟเปรียบเทียบผลประกอบการ (ภาพรวม)</h3>
+                    <h3 class="text-lg font-bold text-slate-700 mb-4 text-center">กราฟเปรียบเทียบกำไรจากการดำเนินงาน (ภาพรวม)</h3>
                     <div style="position: relative; height: 350px; width: 100%;"><canvas id="overviewChart"></canvas></div>
                 </div>
             </div>
 
             <div id="moduleSection" class="hidden">
                 <div class="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-6">
-                    <div class="bg-white p-3 md:p-4 rounded-xl shadow-sm border-l-4 border-green-500"><p class="text-xs md:text-sm text-slate-500 font-medium" id="lbl_card1">รายรับรวม</p><h3 class="text-lg md:text-2xl font-bold text-green-600 truncate" id="c_card1">฿0.00</h3></div>
-                    <div class="bg-white p-3 md:p-4 rounded-xl shadow-sm border-l-4 border-red-500"><p class="text-xs md:text-sm text-slate-500 font-medium" id="lbl_card2">รายจ่ายรวม</p><h3 class="text-lg md:text-2xl font-bold text-red-600 truncate" id="c_card2">฿0.00</h3></div>
-                    <div class="bg-white p-3 md:p-4 rounded-xl shadow-sm border-l-4 border-blue-500"><p class="text-xs md:text-sm text-slate-500 font-medium" id="lbl_card3">ส่วนต่าง/กำไร</p><h3 class="text-lg md:text-2xl font-bold text-blue-600 truncate" id="c_card3">฿0.00</h3></div>
-                    <div class="bg-white p-3 md:p-4 rounded-xl shadow-sm border-l-4 border-amber-500"><p class="text-xs md:text-sm text-slate-500 font-medium" id="lbl_card4">เงินสดคงเหลือ</p><h3 class="text-lg md:text-2xl font-bold text-amber-600 truncate" id="c_card4">฿0.00</h3></div>
+                    <div class="bg-white p-3 md:p-4 rounded-xl shadow-sm border-l-4 border-green-500">
+                        <p class="text-xs md:text-sm text-slate-500 font-medium" id="lbl_card1">รายรับ (ดำเนินงาน)</p>
+                        <h3 class="text-lg md:text-2xl font-bold text-green-600 truncate" id="c_card1">฿0.00</h3>
+                        <p class="text-[10px] md:text-xs text-slate-400 mt-1" id="c_sub1">ทุน/ยอดยกมา: ฿0</p>
+                    </div>
+                    <div class="bg-white p-3 md:p-4 rounded-xl shadow-sm border-l-4 border-red-500">
+                        <p class="text-xs md:text-sm text-slate-500 font-medium" id="lbl_card2">รายจ่าย (ดำเนินงาน)</p>
+                        <h3 class="text-lg md:text-2xl font-bold text-red-600 truncate" id="c_card2">฿0.00</h3>
+                        <p class="text-[10px] md:text-xs text-slate-400 mt-1" id="c_sub2">คืนทุนกองทุน: ฿0</p>
+                    </div>
+                    <div class="bg-white p-3 md:p-4 rounded-xl shadow-sm border-l-4 border-blue-500">
+                        <p class="text-xs md:text-sm text-slate-500 font-medium" id="lbl_card3">กำไรสุทธิ</p>
+                        <h3 class="text-lg md:text-2xl font-bold text-blue-600 truncate" id="c_card3">฿0.00</h3>
+                        <p class="text-[10px] md:text-xs text-slate-400 mt-1">จากการดำเนินงาน</p>
+                    </div>
+                    <div class="bg-white p-3 md:p-4 rounded-xl shadow-sm border-l-4 border-amber-500">
+                        <p class="text-xs md:text-sm text-slate-500 font-medium" id="lbl_card4">เงินสดคงเหลือ</p>
+                        <h3 class="text-lg md:text-2xl font-bold text-amber-600 truncate" id="c_card4">฿0.00</h3>
+                        <p class="text-[10px] md:text-xs text-slate-400 mt-1">ยอดเงินจริงในบัญชี</p>
+                    </div>
                 </div>
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                    <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-100"><h4 class="text-sm font-bold text-slate-700 mb-2 text-center">รายรับ - รายจ่าย (รายเดือน)</h4><div style="position: relative; height: 250px; width: 100%;"><canvas id="modBarChart"></canvas></div></div>
-                    <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-100"><h4 class="text-sm font-bold text-slate-700 mb-2 text-center">กำไร / ขาดทุน (สะสมรายเดือน)</h4><div style="position: relative; height: 250px; width: 100%;"><canvas id="modLineChart"></canvas></div></div>
+                    <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-100"><h4 class="text-sm font-bold text-slate-700 mb-2 text-center">รายรับ - รายจ่าย (จากการดำเนินงาน)</h4><div style="position: relative; height: 250px; width: 100%;"><canvas id="modBarChart"></canvas></div></div>
+                    <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-100"><h4 class="text-sm font-bold text-slate-700 mb-2 text-center">กำไร / ขาดทุน (จากการดำเนินงาน)</h4><div style="position: relative; height: 250px; width: 100%;"><canvas id="modLineChart"></canvas></div></div>
                 </div>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                    <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-100"><h4 class="text-sm font-bold text-slate-700 mb-2 text-center">สัดส่วนรายรับแยกตามหมวดหมู่</h4><div style="position: relative; height: 200px; width: 100%;"><canvas id="modPieInc"></canvas></div></div>
-                    <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-100"><h4 class="text-sm font-bold text-slate-700 mb-2 text-center">สัดส่วนรายจ่ายแยกตามหมวดหมู่</h4><div style="position: relative; height: 200px; width: 100%;"><canvas id="modPieExp"></canvas></div></div>
+                    <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-100"><h4 class="text-sm font-bold text-slate-700 mb-2 text-center">สัดส่วนรายรับ (ดำเนินงาน)</h4><div style="position: relative; height: 200px; width: 100%;"><canvas id="modPieInc"></canvas></div></div>
+                    <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-100"><h4 class="text-sm font-bold text-slate-700 mb-2 text-center">สัดส่วนรายจ่าย (ดำเนินงาน)</h4><div style="position: relative; height: 200px; width: 100%;"><canvas id="modPieExp"></canvas></div></div>
                 </div>
 
                 <div class="bg-white rounded-xl shadow-sm overflow-hidden border border-slate-100">
@@ -120,11 +136,41 @@
 
     <div id="txModal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex justify-center items-center z-50 p-4 transition-opacity">
         <div class="bg-white w-full max-w-lg rounded-xl shadow-2xl p-5 md:p-6 overflow-y-auto max-h-[95vh]">
-            <div class="flex justify-between items-center mb-4 border-b pb-3"><h3 class="text-lg md:text-xl font-bold text-slate-800" id="modalFormTitle">บันทึกรายการใหม่</h3><button onclick="closeModal()" class="text-slate-400 hover:text-red-500 focus:outline-none"><i class="fa-solid fa-times text-xl"></i></button></div>
+            <div class="flex justify-between items-center mb-4 border-b pb-3">
+                <h3 class="text-lg md:text-xl font-bold text-slate-800" id="modalFormTitle">บันทึกรายการใหม่</h3>
+                <button onclick="closeModal()" class="text-slate-400 hover:text-red-500 focus:outline-none"><i class="fa-solid fa-times text-xl"></i></button>
+            </div>
             <form id="txForm" onsubmit="submitForm(event)">
                 <input type="hidden" id="f_id">
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4 mb-3"><div><label class="block text-sm font-medium text-slate-700 mb-1">วันที่</label><input type="date" id="f_date" required class="w-full border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 outline-none"></div><div><label class="block text-sm font-medium text-slate-700 mb-1">ประเภท</label><select id="f_type" required class="w-full border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 outline-none"><option value="รายรับ">รายรับ</option><option value="รายจ่าย">รายจ่าย</option></select></div></div>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4 mb-3"><div><label class="block text-sm font-medium text-slate-700 mb-1">รายการ</label><input type="text" id="f_item" placeholder="เช่น ขายสินค้า, ซื้อของ" required class="w-full border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 outline-none"></div><div><label class="block text-sm font-medium text-slate-700 mb-1">ช่องทาง</label><select id="f_method" class="w-full border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 outline-none"><option value="เงินสด">เงินสด</option><option value="เงินโอน">เงินโอน</option><option value="-">-</option></select></div></div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4 mb-3">
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">วันที่</label>
+                        <input type="date" id="f_date" required class="w-full border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">ประเภท</label>
+                        <select id="f_type" required class="w-full border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 outline-none" onchange="updateItemDropdown()">
+                            <option value="รายรับ">รายรับ</option>
+                            <option value="รายจ่าย">รายจ่าย</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4 mb-3">
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">รายการ</label>
+                        <select id="f_item_select" required class="w-full border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 outline-none" onchange="toggleOtherItem()">
+                            </select>
+                        <input type="text" id="f_item_other" placeholder="โปรดระบุรายการ" class="w-full border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 outline-none mt-2 hidden">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">ช่องทาง</label>
+                        <select id="f_method" class="w-full border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 outline-none">
+                            <option value="เงินสด">เงินสด</option><option value="เงินโอน">เงินโอน</option><option value="-">-</option>
+                        </select>
+                    </div>
+                </div>
+
                 <div class="mb-3"><label class="block text-sm font-medium text-slate-700 mb-1">จำนวนเงิน</label><input type="number" step="0.01" id="f_amount" required class="w-full border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 outline-none"></div>
                 <div class="mb-3"><label class="block text-sm font-medium text-slate-700 mb-1">หมายเหตุ</label><input type="text" id="f_note" placeholder="รายละเอียดเพิ่มเติม" class="w-full border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 outline-none"></div>
                 <div class="mb-5 p-3 md:p-4 bg-slate-50 border border-slate-200 rounded-lg"><label class="block text-sm font-semibold text-slate-800 mb-2">หลักฐาน <span class="text-xs font-normal text-slate-500">(ไม่บังคับ)</span></label><select id="f_eviType" onchange="toggleEvi()" class="w-full border border-slate-300 rounded-lg p-2 mb-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none"><option value="file">อัปโหลดไฟล์ (ไม่เกิน 5MB)</option><option value="link">วางลิงก์เอกสาร (Google Drive)</option></select><input type="file" id="f_file" accept="image/*,.pdf" class="w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-100 file:text-blue-700 hover:file:bg-blue-200"><input type="url" id="f_link" placeholder="https://..." class="w-full border border-slate-300 rounded-lg p-2 text-sm hidden focus:ring-2 focus:ring-blue-500 outline-none"></div>
