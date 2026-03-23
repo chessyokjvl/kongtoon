@@ -69,19 +69,20 @@ async function fetchOverview() {
 
 async function fetchData() {
     const tb = document.getElementById('tableBody');
-    tb.innerHTML = '<tr><td colspan="6" class="p-10 text-center text-blue-500"><i class="fa-solid fa-spinner fa-spin text-3xl mb-3"></i><br>กำลังดึงข้อมูล...</td></tr>';
+    tb.innerHTML = '<tr><td colspan="7" class="p-10 text-center text-blue-500"><i class="fa-solid fa-spinner fa-spin text-3xl mb-3"></i><br>กำลังดึงข้อมูล...</td></tr>';
     try {
         const res = await (await fetch(API_URL, { method: 'POST', body: JSON.stringify({ action: 'get_data', payload: { module: currentModule } }) })).json();
         if (res.status === 'success') { rawData = res.data; renderData(); }
-    } catch (err) { tb.innerHTML = `<tr><td colspan="6" class="p-6 text-center text-red-500">การเชื่อมต่อขัดข้อง</td></tr>`; }
+    } catch (err) { tb.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-red-500">การเชื่อมต่อขัดข้อง</td></tr>`; }
 }
 
 function renderData() {
     const tb = document.getElementById('tableBody'); tb.innerHTML = '';
+    
     let opInc=0, opExp=0, nonOpInc=0, nonOpExp=0;
     let transferInc = 0; 
-    let initBF = 0; // ยอดยกมา ก้อนแรกสุด (ตั้งต้น)
-    let minDate = new Date('2099-01-01');
+    let initBF = 0; 
+    let bfFound = false;
     let cMonth={}, pInc={}, pExp={};
 
     if (rawData.length === 0) {
@@ -89,35 +90,40 @@ function renderData() {
         updateCards(0, 0, 0, 0); renderCharts(cMonth, pInc, pExp); return;
     }
 
-    rawData.forEach(r => {
+    // Sort วันที่ให้เรียงจากเก่าไปใหม่ เพื่อป้องกันยอดยกมาเพี้ยน
+    let sortedData = [...rawData].sort((a,b) => new Date(a.date) - new Date(b.date));
+
+    sortedData.forEach(r => {
         let amt = Number(r.amount) || 0;
         let d = new Date(r.date);
+        let itemStr = String(r.item).trim();
         let sKey = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+        
         if(!cMonth[sKey]) cMonth[sKey] = { label: `${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`, inc: 0, exp: 0 };
 
         if (r.type === 'รายรับ') {
-            if (r.item === 'ยอดยกมา') {
-                // หากเป็นยอดยกมา ให้บันทึกเฉพาะก้อนที่เก่าที่สุด
-                if(d < minDate) { minDate = d; initBF = amt; }
+            if (itemStr === 'ยอดยกมา') {
+                if (!bfFound) { initBF = amt; bfFound = true; }
             }
-            else if (['เบิกเงินกองทุน', 'ถอนเงินกองทุน'].includes(r.item)) { 
+            else if (['เบิกเงินกองทุน', 'ถอนเงินกองทุน'].includes(itemStr)) { 
                 nonOpInc += amt; 
             } else { 
                 opInc += amt; 
                 cMonth[sKey].inc += amt; 
-                pInc[r.item] = (pInc[r.item]||0)+amt; 
+                pInc[itemStr] = (pInc[itemStr]||0)+amt; 
                 
+                // หักเงินโอนออกจากกระแสเงินสดของร้าน
                 if (currentModule !== 'Fund' && r.method === 'เงินโอน') {
                     transferInc += amt;
                 }
             }
         } else if (r.type === 'รายจ่าย') {
-            if (['คืนเงินกองทุน', 'ถอนเงิน'].includes(r.item)) { 
+            if (['คืนเงินกองทุน', 'ถอนเงิน'].includes(itemStr)) { 
                 nonOpExp += amt; 
             } else { 
                 opExp += amt; 
                 cMonth[sKey].exp += amt; 
-                pExp[r.item] = (pExp[r.item]||0)+amt; 
+                pExp[itemStr] = (pExp[itemStr]||0)+amt; 
             }
         }
 
@@ -128,7 +134,6 @@ function renderData() {
         let evi = (r.evidence && r.evidence.length > 5) ? `<a href="${r.evidence}" target="_blank" class="text-blue-600 underline text-xs">หลักฐาน</a>` : '-';
         let noteHtml = (currentModule === 'Fund' && r.subItem) ? `<span class="text-blue-600">[${r.subItem}]</span> ${r.department||''} <br> ${r.note}` : r.note;
         
-        // เพิ่ม Badge ช่องทางการรับเงิน
         let methodHtml = '-';
         if(r.method === 'เงินสด') methodHtml = `<span class="bg-blue-50 text-blue-600 border border-blue-200 px-2 py-1 rounded text-xs font-semibold">เงินสด</span>`;
         else if(r.method === 'เงินโอน') methodHtml = `<span class="bg-indigo-50 text-indigo-600 border border-indigo-200 px-2 py-1 rounded text-xs font-semibold">เงินโอน</span>`;
@@ -145,17 +150,14 @@ function renderData() {
     });
 
     let profit = opInc - opExp; 
-    
-    // เงินสดคงเหลือ = (รายได้รวม + เบิกกองทุน + เงินตั้งต้นก้อนแรกสุด) - (รายจ่ายรวม) - (เงินโอน)
     let cashOnHand = (opInc + nonOpInc + initBF) - (opExp + nonOpExp);
-    if (currentModule !== 'Fund') {
-        cashOnHand -= transferInc;
-    }
+    if (currentModule !== 'Fund') { cashOnHand -= transferInc; } // หักเงินโอน
 
     document.getElementById('lbl_inc').innerText = currentModule === 'Fund' ? 'รายรับ (เงินโอน/เงินสด)' : 'รายได้ดำเนินงาน (ยอดขาย)';
     updateCards(opInc, opExp, profit, cashOnHand);
     renderCharts(cMonth, pInc, pExp);
 }
+
 function updateCards(inc, exp, pro, cash) {
     const f = n => '฿' + (n||0).toLocaleString('th-TH', {minimumFractionDigits:2});
     document.getElementById('c_income').innerText = f(inc); document.getElementById('c_expense').innerText = f(exp);
@@ -199,7 +201,7 @@ function openModal() { document.getElementById('txModal').classList.remove('hidd
 function closeModal() { document.getElementById('txModal').classList.add('hidden'); document.getElementById('txForm').reset(); document.getElementById('f_id').value=''; }
 function logout() { sessionStorage.removeItem('user'); window.location.href = 'index.html'; }
 
-// --- Report Generation (สร้างรายงานโชว์บนจอก่อนพิมพ์) ---
+// --- Report Generation ---
 function openReportModal() { document.getElementById('reportModal').classList.remove('hidden'); }
 function closeReportPreview() { document.getElementById('reportPreviewContainer').classList.add('hidden'); }
 
@@ -210,21 +212,36 @@ function generateReport() {
     const pa = document.getElementById('printArea');
     
     let sortedData = [...rawData].sort((a,b) => new Date(a.date) - new Date(b.date));
-    let bf = 0; 
+    let runningBalance = 0; 
     let monthData = [];
+    let hasFoundInitialBF = false;
     
     sortedData.forEach(r => {
         let d = new Date(r.date), amt = Number(r.amount)||0;
+        let itemStr = String(r.item).trim();
+        
+        let actualAmt = amt;
+        if (r.type === 'รายรับ' && itemStr === 'ยอดยกมา') {
+            if (!hasFoundInitialBF) { hasFoundInitialBF = true; } 
+            else { actualAmt = 0; } // ดักจับยอดยกมาซ้ำซ้อน ไม่นำมาคำนวณ
+        }
+
         if(d.getFullYear() < y || (d.getFullYear() === y && d.getMonth()+1 < m)) {
-            if(r.type === 'รายรับ') bf += amt; else bf -= amt;
+            if(r.type === 'รายรับ') runningBalance += actualAmt; else runningBalance -= actualAmt;
         } else if(d.getFullYear() === y && d.getMonth()+1 === m) {
-            monthData.push(r);
+            // ยอดยกมาไม่ต้องโชว์ในตาราง เพราะใบบัญชีมีช่องให้มันอยู่แล้ว ยกเว้นมันบังเอิญเกิดในเดือนนี้พอดีก็นำไปบวกเป็นฐาน
+            if (!(r.type === 'รายรับ' && itemStr === 'ยอดยกมา')) {
+                monthData.push(r);
+            } else if (actualAmt > 0) {
+                runningBalance += actualAmt;
+            }
         }
     });
 
+    let bf = runningBalance;
     const f = n => (n||0).toLocaleString('th-TH', {minimumFractionDigits:2});
     
-    if(currentModule === 'Fund') { // Bank Statement Format
+    if(currentModule === 'Fund') { 
         let bal = bf;
         let trs = monthData.map(r => {
             if(r.type === 'รายรับ') bal += Number(r.amount); else bal -= Number(r.amount);
@@ -243,20 +260,24 @@ function generateReport() {
                 </tbody>
             </table>
         </div>`;
-    } else { // Summary Format
+    } else { 
         let sCash=0, sTrans=0, sFund=0, eGoods=0, eSal=0, eFund=0;
         monthData.forEach(r => {
             let amt = Number(r.amount)||0;
+            let itemStr = String(r.item).trim();
             if(r.type === 'รายรับ') {
-                if(r.item === 'ยอดขาย' && r.method === 'เงินสด') sCash += amt;
-                else if(r.item === 'ยอดขาย' && r.method === 'เงินโอน') sTrans += amt;
-                else if(r.item === 'เบิกเงินกองทุน') sFund += amt;
+                if(itemStr.includes('ขายสินค้า') || itemStr === 'ยอดขาย') {
+                    if(r.method === 'เงินสด') sCash += amt;
+                    else if(r.method === 'เงินโอน') sTrans += amt;
+                }
+                else if(itemStr.includes('กองทุน')) sFund += amt;
             } else {
-                if(r.item === 'ซื้อของ') eGoods += amt;
-                else if(r.item === 'เงินเดือน') eSal += amt;
-                else if(r.item === 'คืนเงินกองทุน') eFund += amt;
+                if(itemStr.includes('ซื้อของ')) eGoods += amt;
+                else if(itemStr === 'เงินเดือน') eSal += amt;
+                else if(itemStr.includes('คืนเงินกองทุน') || itemStr.includes('ถอนเงิน')) eFund += amt;
             }
         });
+        
         let tSales = sCash + sTrans; let tExp = eGoods + eSal; let net = tSales - tExp;
         let tMoney = net + bf + sFund; let cHand = tMoney - sTrans - eFund;
 
@@ -283,6 +304,5 @@ function generateReport() {
         </div>`;
     }
     
-    // โชว์หน้าต่างพรีวิว แทนการพิมพ์ทันที
     document.getElementById('reportPreviewContainer').classList.remove('hidden');
 }
