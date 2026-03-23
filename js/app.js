@@ -79,11 +79,13 @@ async function fetchData() {
 function renderData() {
     const tb = document.getElementById('tableBody'); tb.innerHTML = '';
     let opInc=0, opExp=0, nonOpInc=0, nonOpExp=0;
-    let transferInc = 0; // ยอดเงินโอนที่เข้ากองทุนโดยตรง
+    let transferInc = 0; 
+    let initBF = 0; // ยอดยกมา ก้อนแรกสุด (ตั้งต้น)
+    let minDate = new Date('2099-01-01');
     let cMonth={}, pInc={}, pExp={};
 
     if (rawData.length === 0) {
-        tb.innerHTML = '<tr><td colspan="6" class="p-6 text-center text-slate-500">ยังไม่มีรายการบัญชี</td></tr>';
+        tb.innerHTML = '<tr><td colspan="7" class="p-6 text-center text-slate-500">ยังไม่มีรายการบัญชี</td></tr>';
         updateCards(0, 0, 0, 0); renderCharts(cMonth, pInc, pExp); return;
     }
 
@@ -94,14 +96,17 @@ function renderData() {
         if(!cMonth[sKey]) cMonth[sKey] = { label: `${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`, inc: 0, exp: 0 };
 
         if (r.type === 'รายรับ') {
-            if (['ยอดยกมา', 'เบิกเงินกองทุน', 'ถอนเงินกองทุน'].includes(r.item)) { 
+            if (r.item === 'ยอดยกมา') {
+                // หากเป็นยอดยกมา ให้บันทึกเฉพาะก้อนที่เก่าที่สุด
+                if(d < minDate) { minDate = d; initBF = amt; }
+            }
+            else if (['เบิกเงินกองทุน', 'ถอนเงินกองทุน'].includes(r.item)) { 
                 nonOpInc += amt; 
             } else { 
                 opInc += amt; 
                 cMonth[sKey].inc += amt; 
                 pInc[r.item] = (pInc[r.item]||0)+amt; 
                 
-                // ถ้ารับเงินด้วยการโอน (สำหรับร้านกาแฟ/ผลิตภัณฑ์) ให้จดไว้เพื่อหักออกจากเงินสดในมือ
                 if (currentModule !== 'Fund' && r.method === 'เงินโอน') {
                     transferInc += amt;
                 }
@@ -122,16 +127,27 @@ function renderData() {
         }
         let evi = (r.evidence && r.evidence.length > 5) ? `<a href="${r.evidence}" target="_blank" class="text-blue-600 underline text-xs">หลักฐาน</a>` : '-';
         let noteHtml = (currentModule === 'Fund' && r.subItem) ? `<span class="text-blue-600">[${r.subItem}]</span> ${r.department||''} <br> ${r.note}` : r.note;
+        
+        // เพิ่ม Badge ช่องทางการรับเงิน
+        let methodHtml = '-';
+        if(r.method === 'เงินสด') methodHtml = `<span class="bg-blue-50 text-blue-600 border border-blue-200 px-2 py-1 rounded text-xs font-semibold">เงินสด</span>`;
+        else if(r.method === 'เงินโอน') methodHtml = `<span class="bg-indigo-50 text-indigo-600 border border-indigo-200 px-2 py-1 rounded text-xs font-semibold">เงินโอน</span>`;
 
-        tb.innerHTML += `<tr class="border-b"><td class="p-3">${r.date}</td><td class="p-3"><span class="px-2 py-1 text-xs rounded ${r.type==='รายรับ'?'bg-green-100 text-green-700':'bg-red-100 text-red-700'}">${r.type}</span></td><td class="p-3 font-medium">${r.item} <br><span class="text-xs text-slate-500 font-normal">${noteHtml}</span></td><td class="p-3 text-right">฿${amt.toLocaleString('th-TH',{minimumFractionDigits:2})}</td><td class="p-3 text-center">${evi}</td><td class="p-3 text-center">${act}</td></tr>`;
+        tb.innerHTML += `<tr class="border-b">
+            <td class="p-3">${r.date}</td>
+            <td class="p-3"><span class="px-2 py-1 text-xs rounded ${r.type==='รายรับ'?'bg-green-100 text-green-700':'bg-red-100 text-red-700'}">${r.type}</span></td>
+            <td class="p-3 font-medium">${r.item} <br><span class="text-xs text-slate-500 font-normal">${noteHtml}</span></td>
+            <td class="p-3 text-center">${methodHtml}</td>
+            <td class="p-3 text-right">฿${amt.toLocaleString('th-TH',{minimumFractionDigits:2})}</td>
+            <td class="p-3 text-center">${evi}</td>
+            <td class="p-3 text-center">${act}</td>
+        </tr>`;
     });
 
-    // กำไร = รายรับปกติ - รายจ่ายปกติ
     let profit = opInc - opExp; 
     
-    // เงินสดคงเหลือ = (รายรับรวมทั้งหมด) - (รายจ่ายรวมทั้งหมด) 
-    let cashOnHand = (opInc + nonOpInc) - (opExp + nonOpExp);
-    // หากเป็นร้านกาแฟ/ผลิตภัณฑ์ ให้หักเงินโอนออกไปจากกระเป๋าด้วย
+    // เงินสดคงเหลือ = (รายได้รวม + เบิกกองทุน + เงินตั้งต้นก้อนแรกสุด) - (รายจ่ายรวม) - (เงินโอน)
+    let cashOnHand = (opInc + nonOpInc + initBF) - (opExp + nonOpExp);
     if (currentModule !== 'Fund') {
         cashOnHand -= transferInc;
     }
@@ -140,7 +156,6 @@ function renderData() {
     updateCards(opInc, opExp, profit, cashOnHand);
     renderCharts(cMonth, pInc, pExp);
 }
-
 function updateCards(inc, exp, pro, cash) {
     const f = n => '฿' + (n||0).toLocaleString('th-TH', {minimumFractionDigits:2});
     document.getElementById('c_income').innerText = f(inc); document.getElementById('c_expense').innerText = f(exp);
