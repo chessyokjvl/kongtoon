@@ -11,7 +11,7 @@ let modPieIncInst = null;
 let modPieExpInst = null;
 
 const moduleLabels = {
-    Fund: { title: 'บัญชีหลัก: กองทุนเพื่อผู้ป่วยจิตเวชยากไร้', c1: 'รับเข้า (ดำเนินงาน)', c2: 'จ่ายออก (ดำเนินงาน)', c3: 'กำไรจากการดำเนินงาน', c4: 'เงินสดคงเหลือ' },
+    Fund: { title: 'บัญชีธนาคาร: กองทุนเพื่อผู้ป่วยจิตเวชยากไร้', c1: 'รับเข้า (ดำเนินงาน)', c2: 'จ่ายออก (ดำเนินงาน)', c3: 'กำไรจากการดำเนินงาน', c4: 'เงินสดคงเหลือ' },
     Cafe: { title: 'หน่วยลงทุน: ร้านกาแฟสุขใจ', c1: 'รายรับ (ดำเนินงาน)', c2: 'รายจ่าย (ดำเนินงาน)', c3: 'กำไรสุทธิ', c4: 'เงินสดหมุนเวียน' },
     Shop: { title: 'หน่วยลงทุน: ร้านผลิตภัณฑ์ผู้ป่วย', c1: 'รายรับ (ดำเนินงาน)', c2: 'รายจ่าย (ดำเนินงาน)', c3: 'กำไรสุทธิ', c4: 'เงินสดหมุนเวียน' }
 };
@@ -103,7 +103,7 @@ function renderOverviewChart(data) {
         data: {
             labels: allKeys,
             datasets: [
-                { label: 'กองทุนฯ', data: fundProfit, backgroundColor: '#3b82f6' },
+                { label: 'บัญชีกองทุนฯ', data: fundProfit, backgroundColor: '#3b82f6' },
                 { label: 'ร้านกาแฟ', data: cafeProfit, backgroundColor: '#f59e0b' },
                 { label: 'ร้านผลิตภัณฑ์', data: shopProfit, backgroundColor: '#10b981' }
             ]
