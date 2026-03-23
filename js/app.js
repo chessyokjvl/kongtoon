@@ -32,7 +32,6 @@ function switchModule(mod) {
     document.getElementById('moduleTitle').innerText = titles[mod];
     document.getElementById('mobileTitle').innerText = titles[mod];
 
-    // ทำลายกราฟทิ้งก่อนเพื่อเคลียร์ Canvas แก้บั๊ก getContext
     if(charts.main) { charts.main.destroy(); charts.main = null; }
     if(charts.incPie) { charts.incPie.destroy(); charts.incPie = null; }
     if(charts.expPie) { charts.expPie.destroy(); charts.expPie = null; }
@@ -80,6 +79,7 @@ async function fetchData() {
 function renderData() {
     const tb = document.getElementById('tableBody'); tb.innerHTML = '';
     let opInc=0, opExp=0, nonOpInc=0, nonOpExp=0;
+    let transferInc = 0; // ยอดเงินโอนที่เข้ากองทุนโดยตรง
     let cMonth={}, pInc={}, pExp={};
 
     if (rawData.length === 0) {
@@ -94,11 +94,26 @@ function renderData() {
         if(!cMonth[sKey]) cMonth[sKey] = { label: `${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`, inc: 0, exp: 0 };
 
         if (r.type === 'รายรับ') {
-            if (['ยอดยกมา', 'เบิกเงินกองทุน', 'ถอนเงินกองทุน'].includes(r.item)) { nonOpInc += amt; }
-            else { opInc += amt; cMonth[sKey].inc += amt; pInc[r.item] = (pInc[r.item]||0)+amt; }
+            if (['ยอดยกมา', 'เบิกเงินกองทุน', 'ถอนเงินกองทุน'].includes(r.item)) { 
+                nonOpInc += amt; 
+            } else { 
+                opInc += amt; 
+                cMonth[sKey].inc += amt; 
+                pInc[r.item] = (pInc[r.item]||0)+amt; 
+                
+                // ถ้ารับเงินด้วยการโอน (สำหรับร้านกาแฟ/ผลิตภัณฑ์) ให้จดไว้เพื่อหักออกจากเงินสดในมือ
+                if (currentModule !== 'Fund' && r.method === 'เงินโอน') {
+                    transferInc += amt;
+                }
+            }
         } else if (r.type === 'รายจ่าย') {
-            if (['คืนเงินกองทุน', 'ถอนเงิน'].includes(r.item)) { nonOpExp += amt; }
-            else { opExp += amt; cMonth[sKey].exp += amt; pExp[r.item] = (pExp[r.item]||0)+amt; }
+            if (['คืนเงินกองทุน', 'ถอนเงิน'].includes(r.item)) { 
+                nonOpExp += amt; 
+            } else { 
+                opExp += amt; 
+                cMonth[sKey].exp += amt; 
+                pExp[r.item] = (pExp[r.item]||0)+amt; 
+            }
         }
 
         let act = '-';
@@ -111,8 +126,18 @@ function renderData() {
         tb.innerHTML += `<tr class="border-b"><td class="p-3">${r.date}</td><td class="p-3"><span class="px-2 py-1 text-xs rounded ${r.type==='รายรับ'?'bg-green-100 text-green-700':'bg-red-100 text-red-700'}">${r.type}</span></td><td class="p-3 font-medium">${r.item} <br><span class="text-xs text-slate-500 font-normal">${noteHtml}</span></td><td class="p-3 text-right">฿${amt.toLocaleString('th-TH',{minimumFractionDigits:2})}</td><td class="p-3 text-center">${evi}</td><td class="p-3 text-center">${act}</td></tr>`;
     });
 
+    // กำไร = รายรับปกติ - รายจ่ายปกติ
+    let profit = opInc - opExp; 
+    
+    // เงินสดคงเหลือ = (รายรับรวมทั้งหมด) - (รายจ่ายรวมทั้งหมด) 
+    let cashOnHand = (opInc + nonOpInc) - (opExp + nonOpExp);
+    // หากเป็นร้านกาแฟ/ผลิตภัณฑ์ ให้หักเงินโอนออกไปจากกระเป๋าด้วย
+    if (currentModule !== 'Fund') {
+        cashOnHand -= transferInc;
+    }
+
     document.getElementById('lbl_inc').innerText = currentModule === 'Fund' ? 'รายรับ (เงินโอน/เงินสด)' : 'รายได้ดำเนินงาน (ยอดขาย)';
-    updateCards(opInc, opExp, opInc-opExp, (opInc+nonOpInc)-(opExp+nonOpExp));
+    updateCards(opInc, opExp, profit, cashOnHand);
     renderCharts(cMonth, pInc, pExp);
 }
 
@@ -124,8 +149,7 @@ function updateCards(inc, exp, pro, cash) {
 }
 
 function renderCharts(m, pI, pE) {
-    if(document.getElementById('viewModule').classList.contains('hidden')) return; // ป้องกันวาดกราฟตอนซ่อนจอ
-    
+    if(document.getElementById('viewModule').classList.contains('hidden')) return;
     const k = Object.keys(m).sort();
     if(charts.main) charts.main.destroy();
     charts.main = new Chart(document.getElementById('mainChart').getContext('2d'), { data: { labels: k.map(x=>m[x].label), datasets: [ { type: 'line', label: 'ผลประกอบการ', data: k.map(x=>m[x].inc-m[x].exp), borderColor: '#3b82f6', backgroundColor: '#3b82f6' }, { type: 'bar', label: 'รายรับดำเนินงาน', data: k.map(x=>m[x].inc), backgroundColor: '#22c55e' }, { type: 'bar', label: 'รายจ่ายดำเนินงาน', data: k.map(x=>m[x].exp), backgroundColor: '#ef4444' } ] }, options: { responsive: true, maintainAspectRatio: false } });
@@ -160,8 +184,9 @@ function openModal() { document.getElementById('txModal').classList.remove('hidd
 function closeModal() { document.getElementById('txModal').classList.add('hidden'); document.getElementById('txForm').reset(); document.getElementById('f_id').value=''; }
 function logout() { sessionStorage.removeItem('user'); window.location.href = 'index.html'; }
 
-// --- Report Generation ---
+// --- Report Generation (สร้างรายงานโชว์บนจอก่อนพิมพ์) ---
 function openReportModal() { document.getElementById('reportModal').classList.remove('hidden'); }
+function closeReportPreview() { document.getElementById('reportPreviewContainer').classList.add('hidden'); }
 
 function generateReport() {
     document.getElementById('reportModal').classList.add('hidden');
@@ -169,9 +194,8 @@ function generateReport() {
     const mName = document.getElementById('r_month').options[document.getElementById('r_month').selectedIndex].text;
     const pa = document.getElementById('printArea');
     
-    // Sort & Filter data
     let sortedData = [...rawData].sort((a,b) => new Date(a.date) - new Date(b.date));
-    let bf = 0; // Brought Forward (ยอดยกมา)
+    let bf = 0; 
     let monthData = [];
     
     sortedData.forEach(r => {
@@ -190,21 +214,21 @@ function generateReport() {
         let trs = monthData.map(r => {
             if(r.type === 'รายรับ') bal += Number(r.amount); else bal -= Number(r.amount);
             let desc = r.item + (r.subItem ? ` - ${r.subItem}` : '');
-            return `<tr><td style="border:1px solid #000; padding:5px;">${r.date}</td><td style="border:1px solid #000; padding:5px;">${desc}</td><td style="border:1px solid #000; padding:5px; text-align:right;">${r.type==='รายรับ'?f(r.amount):'-'}</td><td style="border:1px solid #000; padding:5px; text-align:right;">${r.type==='รายจ่าย'?f(r.amount):'-'}</td><td style="border:1px solid #000; padding:5px; text-align:right;">${f(bal)}</td></tr>`;
+            return `<tr><td style="border:1px solid #000; padding:8px;">${r.date}</td><td style="border:1px solid #000; padding:8px;">${desc}</td><td style="border:1px solid #000; padding:8px; text-align:right;">${r.type==='รายรับ'?f(r.amount):'-'}</td><td style="border:1px solid #000; padding:8px; text-align:right;">${r.type==='รายจ่าย'?f(r.amount):'-'}</td><td style="border:1px solid #000; padding:8px; text-align:right;">${f(bal)}</td></tr>`;
         }).join('');
         
         pa.innerHTML = `<div style="font-family:'Sarabun'; color:#000;">
             <h2 style="text-align:center; font-size:24px; font-weight:bold;">บัญชีกองทุนเพื่อผู้ป่วยจิตเวชยากไร้</h2>
             <h3 style="text-align:center; font-size:18px;">Statement ประจำเดือน ${mName} ${y+543}</h3>
-            <table style="width:100%; border-collapse:collapse; margin-top:20px; font-size:14px;">
-                <thead><tr style="background:#f0f0f0;"><th style="border:1px solid #000; padding:5px;">วันที่</th><th style="border:1px solid #000; padding:5px;">รายการ</th><th style="border:1px solid #000; padding:5px;">ฝั่งเข้า (In)</th><th style="border:1px solid #000; padding:5px;">ฝั่งออก (Out)</th><th style="border:1px solid #000; padding:5px;">คงเหลือ (Balance)</th></tr></thead>
+            <table style="width:100%; border-collapse:collapse; margin-top:20px; font-size:15px;">
+                <thead><tr style="background:#f0f0f0;"><th style="border:1px solid #000; padding:8px;">วันที่</th><th style="border:1px solid #000; padding:8px;">รายการ</th><th style="border:1px solid #000; padding:8px;">ฝั่งเข้า (In)</th><th style="border:1px solid #000; padding:8px;">ฝั่งออก (Out)</th><th style="border:1px solid #000; padding:8px;">คงเหลือ (Balance)</th></tr></thead>
                 <tbody>
-                    <tr><td style="border:1px solid #000; padding:5px;" colspan="4">ยอดยกมา</td><td style="border:1px solid #000; padding:5px; text-align:right; font-weight:bold;">${f(bf)}</td></tr>
+                    <tr><td style="border:1px solid #000; padding:8px;" colspan="4">ยอดยกมา</td><td style="border:1px solid #000; padding:8px; text-align:right; font-weight:bold;">${f(bf)}</td></tr>
                     ${trs}
                 </tbody>
             </table>
         </div>`;
-    } else { // Summary Format (Cafe/Shop)
+    } else { // Summary Format
         let sCash=0, sTrans=0, sFund=0, eGoods=0, eSal=0, eFund=0;
         monthData.forEach(r => {
             let amt = Number(r.amount)||0;
@@ -222,30 +246,28 @@ function generateReport() {
         let tMoney = net + bf + sFund; let cHand = tMoney - sTrans - eFund;
 
         pa.innerHTML = `<div style="font-family:'Sarabun'; color:#000;">
-            <h2 style="text-align:center; font-size:20px; font-weight:bold;">สรุปรายรับ-รายจ่าย ${currentModule==='Cafe'?'ร้านกาแฟสุขใจ':'ร้านผลิตภัณฑ์ฯ'}</h2>
-            <h3 style="text-align:center; font-size:16px; margin-bottom:20px;">ประจำเดือน ${mName} ${y+543}</h3>
-            <table style="width:100%; border-collapse:collapse; font-size:14px;">
-                <tr style="background:#fff4cc; text-align:center;"><th colspan="2" style="border:1px solid #000; padding:5px;">รายรับ</th><th colspan="2" style="border:1px solid #000; padding:5px;">รายจ่าย</th></tr>
-                <tr><td style="border:1px solid #000; padding:5px; background:#ffdeb3;">ยอดยกมา</td><td style="border:1px solid #000; padding:5px; text-align:right; background:#ffdeb3;">${f(bf)}</td><td style="border:1px solid #000; padding:5px;">ค่าซื้อของ</td><td style="border:1px solid #000; padding:5px; text-align:right;">${f(eGoods)}</td></tr>
-                <tr><td style="border:1px solid #000; padding:5px;">ขาย (สด)</td><td style="border:1px solid #000; padding:5px; text-align:right;">${f(sCash)}</td><td style="border:1px solid #000; padding:5px;">เงินเดือน</td><td style="border:1px solid #000; padding:5px; text-align:right;">${f(eSal)}</td></tr>
-                <tr><td style="border:1px solid #000; padding:5px;">ขาย (โอน)</td><td style="border:1px solid #000; padding:5px; text-align:right;">${f(sTrans)}</td><td style="border:1px solid #000; padding:5px;">คืนกองทุน</td><td style="border:1px solid #000; padding:5px; text-align:right;">${f(eFund)}</td></tr>
-                <tr><td style="border:1px solid #000; padding:5px; background:#ffdeb3;">เบิกกองทุน</td><td style="border:1px solid #000; padding:5px; text-align:right; background:#ffdeb3;">${f(sFund)}</td><td style="border:1px solid #000; padding:5px;"></td><td style="border:1px solid #000; padding:5px;"></td></tr>
-                <tr style="background:#d4edda; font-weight:bold;"><td style="border:1px solid #000; padding:5px;">รวมรับสิ้น</td><td style="border:1px solid #000; padding:5px; text-align:right;">${f(bf+tSales+sFund)}</td><td style="border:1px solid #000; padding:5px;">รวมจ่ายทั้งสิ้น</td><td style="border:1px solid #000; padding:5px; text-align:right;">${f(tExp+eFund)}</td></tr>
+            <h2 style="text-align:center; font-size:22px; font-weight:bold;">สรุปรายรับ-รายจ่าย ${currentModule==='Cafe'?'ร้านกาแฟสุขใจ':'ร้านผลิตภัณฑ์ฯ'}</h2>
+            <h3 style="text-align:center; font-size:18px; margin-bottom:20px;">ประจำเดือน ${mName} ${y+543}</h3>
+            <table style="width:100%; border-collapse:collapse; font-size:15px;">
+                <tr style="background:#fff4cc; text-align:center;"><th colspan="2" style="border:1px solid #000; padding:8px;">รายรับ</th><th colspan="2" style="border:1px solid #000; padding:8px;">รายจ่าย</th></tr>
+                <tr><td style="border:1px solid #000; padding:8px; background:#ffdeb3;">ยอดยกมา</td><td style="border:1px solid #000; padding:8px; text-align:right; background:#ffdeb3;">${f(bf)}</td><td style="border:1px solid #000; padding:8px;">ค่าซื้อของ</td><td style="border:1px solid #000; padding:8px; text-align:right;">${f(eGoods)}</td></tr>
+                <tr><td style="border:1px solid #000; padding:8px;">ขาย (สด)</td><td style="border:1px solid #000; padding:8px; text-align:right;">${f(sCash)}</td><td style="border:1px solid #000; padding:8px;">เงินเดือน</td><td style="border:1px solid #000; padding:8px; text-align:right;">${f(eSal)}</td></tr>
+                <tr><td style="border:1px solid #000; padding:8px;">ขาย (โอน)</td><td style="border:1px solid #000; padding:8px; text-align:right;">${f(sTrans)}</td><td style="border:1px solid #000; padding:8px;">คืนกองทุน</td><td style="border:1px solid #000; padding:8px; text-align:right;">${f(eFund)}</td></tr>
+                <tr><td style="border:1px solid #000; padding:8px; background:#ffdeb3;">เบิกกองทุน</td><td style="border:1px solid #000; padding:8px; text-align:right; background:#ffdeb3;">${f(sFund)}</td><td style="border:1px solid #000; padding:8px;"></td><td style="border:1px solid #000; padding:8px;"></td></tr>
+                <tr style="background:#d4edda; font-weight:bold;"><td style="border:1px solid #000; padding:8px;">รวมรับสิ้น</td><td style="border:1px solid #000; padding:8px; text-align:right;">${f(bf+tSales+sFund)}</td><td style="border:1px solid #000; padding:8px;">รวมจ่ายทั้งสิ้น</td><td style="border:1px solid #000; padding:8px; text-align:right;">${f(tExp+eFund)}</td></tr>
                 <tr><td colspan="4" style="border:none; padding:10px;"></td></tr>
-                <tr><td colspan="2" style="border:1px solid #000; padding:5px;">รายได้ขายรวม</td><td colspan="2" style="border:1px solid #000; padding:5px; text-align:right;"><u>${f(tSales)}</u></td></tr>
-                <tr><td colspan="2" style="border:1px solid #000; padding:5px;">หัก ค่าใช้จ่าย</td><td colspan="2" style="border:1px solid #000; padding:5px; text-align:right;"><u>${f(tExp)}</u></td></tr>
-                <tr style="background:#cce5ff; font-weight:bold;"><td colspan="2" style="border:1px solid #000; padding:5px;">กำไร/ขาดทุนสุทธิ</td><td colspan="2" style="border:1px solid #000; padding:5px; text-align:right; color:red;">${f(net)}</td></tr>
-                <tr style="background:#ffdeb3;"><td colspan="2" style="border:1px solid #000; padding:5px;">บวก ยอดยกมา</td><td colspan="2" style="border:1px solid #000; padding:5px; text-align:right;"><u>${f(bf)}</u></td></tr>
-                <tr style="background:#ffdeb3;"><td colspan="2" style="border:1px solid #000; padding:5px;">บวก เบิกกองทุน</td><td colspan="2" style="border:1px solid #000; padding:5px; text-align:right;"><u>${f(sFund)}</u></td></tr>
-                <tr style="background:#d4edda; font-weight:bold;"><td colspan="2" style="border:1px solid #000; padding:5px;">รวมเป็นเงินทั้งสิ้น</td><td colspan="2" style="border:1px solid #000; padding:5px; text-align:right;">${f(tMoney)}</td></tr>
-                <tr><td colspan="2" style="border:1px solid #000; padding:5px;">หัก คืนกองทุน</td><td colspan="2" style="border:1px solid #000; padding:5px; text-align:right;"><u>${f(eFund)}</u></td></tr>
-                <tr style="font-weight:bold;"><td colspan="2" style="border:1px solid #000; padding:5px;">คงเหลือเงินสดในมือ (หักโอน)</td><td colspan="2" style="border:1px solid #000; padding:5px; text-align:right;">${f(cHand)}</td></tr>
+                <tr><td colspan="2" style="border:1px solid #000; padding:8px;">รายได้ขายรวม</td><td colspan="2" style="border:1px solid #000; padding:8px; text-align:right;"><u>${f(tSales)}</u></td></tr>
+                <tr><td colspan="2" style="border:1px solid #000; padding:8px;">หัก ค่าใช้จ่าย</td><td colspan="2" style="border:1px solid #000; padding:8px; text-align:right;"><u>${f(tExp)}</u></td></tr>
+                <tr style="background:#cce5ff; font-weight:bold;"><td colspan="2" style="border:1px solid #000; padding:8px;">กำไร/ขาดทุนสุทธิ</td><td colspan="2" style="border:1px solid #000; padding:8px; text-align:right; color:red;">${f(net)}</td></tr>
+                <tr style="background:#ffdeb3;"><td colspan="2" style="border:1px solid #000; padding:8px;">บวก ยอดยกมา</td><td colspan="2" style="border:1px solid #000; padding:8px; text-align:right;"><u>${f(bf)}</u></td></tr>
+                <tr style="background:#ffdeb3;"><td colspan="2" style="border:1px solid #000; padding:8px;">บวก เบิกกองทุน</td><td colspan="2" style="border:1px solid #000; padding:8px; text-align:right;"><u>${f(sFund)}</u></td></tr>
+                <tr style="background:#d4edda; font-weight:bold;"><td colspan="2" style="border:1px solid #000; padding:8px;">รวมเป็นเงินทั้งสิ้น</td><td colspan="2" style="border:1px solid #000; padding:8px; text-align:right;">${f(tMoney)}</td></tr>
+                <tr><td colspan="2" style="border:1px solid #000; padding:8px;">หัก คืนกองทุน</td><td colspan="2" style="border:1px solid #000; padding:8px; text-align:right;"><u>${f(eFund)}</u></td></tr>
+                <tr style="font-weight:bold;"><td colspan="2" style="border:1px solid #000; padding:8px;">คงเหลือเงินสดในมือ (หักโอน)</td><td colspan="2" style="border:1px solid #000; padding:8px; text-align:right;">${f(cHand)}</td></tr>
             </table>
         </div>`;
     }
     
-    // สั่ง Print หน้าจอ
-    pa.classList.remove('hidden');
-    window.print();
-    setTimeout(() => { pa.classList.add('hidden'); pa.innerHTML = ''; }, 1000);
+    // โชว์หน้าต่างพรีวิว แทนการพิมพ์ทันที
+    document.getElementById('reportPreviewContainer').classList.remove('hidden');
 }
