@@ -1,327 +1,286 @@
-let currentUser = JSON.parse(sessionStorage.getItem('user'));
-if (!currentUser) window.location.href = 'index.html'; 
-
-let currentModule = 'Overview';
+// --- Initial Setup & Auth Guard ---
+let currentUser = null;
+let currentModule = 'Fund';
 let rawData = [];
-
-let overviewChartInst = null;
-let modBarInst = null;
-let modLineInst = null;
-let modPieIncInst = null;
-let modPieExpInst = null;
-
-const moduleLabels = {
-    Fund: { title: 'บัญชีหลัก: กองทุนเพื่อผู้ป่วยจิตเวชยากไร้', c1: 'รับเข้า (ดำเนินงาน)', c2: 'จ่ายออก (ดำเนินงาน)', c3: 'กำไรจากการดำเนินงาน', c4: 'เงินสดคงเหลือ' },
-    Cafe: { title: 'หน่วยลงทุน: ร้านกาแฟสุขใจ', c1: 'รายรับ (ดำเนินงาน)', c2: 'รายจ่าย (ดำเนินงาน)', c3: 'กำไรสุทธิ', c4: 'เงินสดหมุนเวียน' },
-    Shop: { title: 'หน่วยลงทุน: ร้านผลิตภัณฑ์ผู้ป่วย', c1: 'รายรับ (ดำเนินงาน)', c2: 'รายจ่าย (ดำเนินงาน)', c3: 'กำไรสุทธิ', c4: 'เงินสดหมุนเวียน' }
-};
+let charts = { main: null, incPie: null, expPie: null }; // เก็บ Instance ของกราฟ
 
 document.addEventListener('DOMContentLoaded', () => {
-    document.getElementById('userDisplay').innerText = `ผู้ใช้งาน: ${currentUser.username} (${currentUser.role})`;
-    switchModule('Overview'); 
-    
-    // ตั้งค่า Report Year
-    const currYear = new Date().getFullYear(); 
-    const ySel = document.getElementById('reportYear');
-    for(let i = currYear - 2; i <= currYear + 2; i++) ySel.options.add(new Option(i + 543, i));
-    ySel.value = currYear; 
-    document.getElementById('reportMonth').value = new Date().getMonth() + 1;
+    // 1. ตรวจสอบว่าได้ Login มาหรือยัง
+    const sessionData = sessionStorage.getItem('user');
+    if (!sessionData) {
+        window.location.href = 'index.html'; // ถ้ายังไม่ Login เด้งกลับไปหน้าแรก
+        return;
+    }
+    currentUser = JSON.parse(sessionData);
+    document.getElementById('userDisplay').innerText = `ผู้ใช้งาน: ${currentUser.username}\nสิทธิ์: ${currentUser.role}`;
+
+    // 2. ตรวจสอบว่า API_URL ถูกตั้งค่ามาจาก config.js หรือยัง
+    if (typeof API_URL === 'undefined' || API_URL === 'YOUR_WEB_APP_URL_HERE' || API_URL === '') {
+        Swal.fire('ข้อผิดพลาดของระบบ', 'ยังไม่ได้ระบุ API_URL ในไฟล์ config.js', 'error');
+        return;
+    }
+
+    // เริ่มต้นแอปด้วยโมดูล Fund
+    switchModule('Fund');
 });
 
-function toggleSidebar() {
-    document.getElementById('sidebar').classList.toggle('-translate-x-full');
-    document.getElementById('mobileOverlay').classList.toggle('hidden');
-}
-
-function applyFilter() { if (currentModule === 'Overview') fetchOverview(); else fetchData(); }
-function clearFilter() { document.getElementById('filterStart').value = ''; document.getElementById('filterEnd').value = ''; applyFilter(); }
-function getFilterPayload() { return { startDate: document.getElementById('filterStart').value, endDate: document.getElementById('filterEnd').value }; }
-
+// --- Navigation & Role Logic ---
 function switchModule(mod) {
     currentModule = mod;
-    document.querySelectorAll('aside nav button').forEach(b => { b.classList.remove('bg-blue-600'); b.classList.add('hover:bg-slate-700'); });
-    document.getElementById(`nav-${mod}`).classList.add('bg-blue-600');
-    document.getElementById(`nav-${mod}`).classList.remove('hover:bg-slate-700');
-
-    if (window.innerWidth < 768) {
-        document.getElementById('sidebar').classList.add('-translate-x-full');
-        document.getElementById('mobileOverlay').classList.add('hidden');
-    }
-
-    const btnAdd = document.getElementById('btnAdd');
-    const btnReport = document.getElementById('btnReport');
-
-    if (mod === 'Overview') {
-        document.getElementById('overviewSection').classList.remove('hidden');
-        document.getElementById('moduleSection').classList.add('hidden');
-        document.getElementById('moduleTitle').innerText = 'ภาพรวมบัญชีกองทุนและหน่วยลงทุน';
-        document.getElementById('mobileTitle').innerText = 'ภาพรวมกองทุน';
-        btnAdd.classList.add('hidden'); 
-        btnReport.classList.add('hidden');
-        fetchOverview();
-    } else {
-        document.getElementById('overviewSection').classList.add('hidden');
-        document.getElementById('moduleSection').classList.remove('hidden');
-        
-        document.getElementById('moduleTitle').innerText = moduleLabels[mod].title;
-        document.getElementById('mobileTitle').innerText = moduleLabels[mod].title;
-        document.getElementById('lbl_card1').innerText = moduleLabels[mod].c1;
-        document.getElementById('lbl_card2').innerText = moduleLabels[mod].c2;
-        document.getElementById('lbl_card3').innerText = moduleLabels[mod].c3;
-        document.getElementById('lbl_card4').innerText = moduleLabels[mod].c4;
-
-        // แสดงปุ่ม Report ทุกคน แต่ปุ่ม Add เฉพาะ Admin
-        btnReport.classList.remove('hidden');
-        
-        if (currentUser.role === 'God_Admin' || currentUser.role === `Admin_${mod}`) btnAdd.classList.remove('hidden');
-        else btnAdd.classList.add('hidden');
-        
-        fetchData();
-    }
-}
-
-async function fetchOverview() {
-    Swal.showLoading();
-    try {
-        let payload = getFilterPayload();
-        const res = await (await fetch(CONFIG.API_URL, { method: 'POST', body: JSON.stringify({ action: 'get_overview', payload }) })).json();
-        if (res.status === 'success') {
-            const fmt = n => `฿${Number(n).toLocaleString('th-TH')}`;
-            document.getElementById('o_fundBal').innerText = fmt(res.data.fund.bal);
-            document.getElementById('o_fundProfit').innerText = fmt(res.data.fund.opInc - res.data.fund.opExp);
-            document.getElementById('o_cafeBal').innerText = fmt(res.data.cafe.opInc - res.data.cafe.opExp);
-            document.getElementById('o_shopBal').innerText = fmt(res.data.shop.opInc - res.data.shop.opExp);
-            renderOverviewChart(res.data);
-            Swal.close();
-        }
-    } catch (err) { Swal.fire('Error', 'ไม่สามารถโหลดภาพรวมได้', 'error'); }
-}
-
-function renderOverviewChart(data) {
-    const allKeys = [...new Set([...Object.keys(data.fund.chart), ...Object.keys(data.cafe.chart), ...Object.keys(data.shop.chart)])].sort();
-    const fundProfit = allKeys.map(k => (data.fund.chart[k]?.opInc || 0) - (data.fund.chart[k]?.opExp || 0));
-    const cafeProfit = allKeys.map(k => (data.cafe.chart[k]?.opInc || 0) - (data.cafe.chart[k]?.opExp || 0));
-    const shopProfit = allKeys.map(k => (data.shop.chart[k]?.opInc || 0) - (data.shop.chart[k]?.opExp || 0));
-
-    if(overviewChartInst) overviewChartInst.destroy();
-    overviewChartInst = new Chart(document.getElementById('overviewChart').getContext('2d'), {
-        type: 'bar',
-        data: { labels: allKeys, datasets: [ { label: 'กองทุนฯ', data: fundProfit, backgroundColor: '#3b82f6' }, { label: 'ร้านกาแฟ', data: cafeProfit, backgroundColor: '#f59e0b' }, { label: 'ร้านผลิตภัณฑ์', data: shopProfit, backgroundColor: '#10b981' } ] },
-        options: { responsive: true, maintainAspectRatio: false }
+    
+    // อัปเดต UI เมนูด้านซ้าย
+    const navButtons = ['Fund', 'Cafe', 'Shop'];
+    navButtons.forEach(btn => {
+        const el = document.getElementById(`nav-${btn}`);
+        el.className = (btn === mod) 
+            ? "w-full flex items-center p-3 rounded-lg bg-blue-600 text-white transition shadow" 
+            : "w-full flex items-center p-3 rounded-lg hover:bg-slate-700 text-white transition";
     });
+    
+    // อัปเดตหัวข้อ
+    const titles = { Fund: 'บัญชีกองทุนเพื่อผู้ป่วยจิตเวชยากไร้', Cafe: 'ร้านกาแฟสุขใจ', Shop: 'ร้านผลิตภัณฑ์ผู้ป่วย' };
+    document.getElementById('moduleTitle').innerText = titles[mod];
+    document.getElementById('mobileTitle').innerText = (mod==='Fund') ? 'บัญชีกองทุนฯ' : titles[mod];
+
+    // ตรวจสอบสิทธิ์ว่ามีปุ่ม "เพิ่มข้อมูล" ไหม
+    checkPermissions();
+    
+    // โหลดข้อมูลจาก Database
+    fetchData();
 }
 
+function checkPermissions() {
+    const btn = document.getElementById('btnAdd');
+    if (currentUser.role === 'God_Admin' || currentUser.role === `Admin_${currentModule}`) {
+        btn.classList.remove('hidden');
+    } else {
+        btn.classList.add('hidden');
+    }
+}
+
+// --- Fetch & Render Data ---
 async function fetchData() {
-    document.getElementById('tableBody').innerHTML = '<tr><td colspan="6" class="p-4 text-center py-10"><i class="fa-solid fa-spinner fa-spin text-blue-500 text-3xl mb-2"></i><br>กำลังโหลด...</td></tr>';
+    const tb = document.getElementById('tableBody');
+    tb.innerHTML = '<tr><td colspan="6" class="p-8 text-center"><i class="fa-solid fa-spinner fa-spin text-blue-500 text-3xl mb-2"></i><br>กำลังดึงข้อมูลจากฐานข้อมูล...</td></tr>';
+    
     try {
-        let payload = getFilterPayload();
-        payload.module = currentModule;
-        const res = await (await fetch(CONFIG.API_URL, { method: 'POST', body: JSON.stringify({ action: 'get_data', payload }) })).json();
-        if (res.status === 'success') { rawData = res.data; renderData(); renderModuleCharts(); }
-    } catch (err) { Swal.fire('Error', 'โหลดข้อมูลล้มเหลว', 'error'); }
+        const response = await fetch(API_URL, { 
+            method: 'POST', 
+            body: JSON.stringify({ action: 'get_data', payload: { module: currentModule } }) 
+        });
+        const res = await response.json();
+        
+        if (res.status === 'success') { 
+            rawData = res.data; 
+            processAndRenderData(); 
+        } else {
+            tb.innerHTML = `<tr><td colspan="6" class="p-4 text-center text-red-500">หลังบ้านแจ้งเตือน: ${res.message}</td></tr>`;
+            Swal.fire('ข้อผิดพลาดจากฐานข้อมูล', res.message, 'error');
+        }
+    } catch (err) { 
+        tb.innerHTML = `<tr><td colspan="6" class="p-4 text-center text-red-500">การเชื่อมต่อขัดข้อง หรือ URL API ไม่ถูกต้อง</td></tr>`;
+        console.error("Fetch Error:", err);
+    }
 }
 
-function renderData() {
-    const tb = document.getElementById('tableBody'); tb.innerHTML = '';
-    let opInc = 0, opExp = 0, capIn = 0, capOut = 0;
+function processAndRenderData() {
+    const tb = document.getElementById('tableBody');
+    tb.innerHTML = '';
     
-    if (rawData.length > 0) {
-        rawData.forEach(r => {
-            let amt = Number(r.amount);
-            let isCapIn = (r.item === 'ยอดยกมา' || r.item === 'ถอนเงินกองทุน' || r.item === 'เงินฝากธนาคาร');
-            let isCapOut = (r.item === 'คืนเงินกองทุน' || r.item === 'ถอนเงินจากธนาคาร');
+    let totalSales = 0, totalExp = 0, totalFund = 0, initBroughtForward = 0;
+    let minDate = new Date('2099-12-31');
+    
+    // สำหรับกราฟ
+    let chartMonthly = {}; 
+    let incPieData = {}; 
+    let expPieData = {};
 
-            if (r.type === 'รายรับ') { if (isCapIn) capIn += amt; else opInc += amt; } 
-            else { if (isCapOut) capOut += amt; else opExp += amt; }
-            
-            let eviHtml = r.evidence ? `<a href="${r.evidence}" target="_blank" class="inline-flex items-center gap-1 px-3 py-1 bg-blue-50 text-blue-600 rounded-full hover:bg-blue-100 text-xs font-medium"><i class="fa-solid fa-file-pdf"></i> ไฟล์</a>` : '-';
-            
-            let actionHtml = '<span class="text-slate-300 text-xs">ดูได้อย่างเดียว</span>';
-            if (currentUser.role === 'God_Admin' || currentUser.role === `Admin_${currentModule}`) {
-                actionHtml = `<div class="flex justify-center gap-2"><button onclick='editTx(${JSON.stringify(r)})' class="w-8 h-8 rounded-full bg-amber-50 text-amber-500 hover:bg-amber-100 transition"><i class="fa-solid fa-pen"></i></button><button onclick="deleteTx('${r.id}')" class="w-8 h-8 rounded-full bg-red-50 text-red-500 hover:bg-red-100 transition"><i class="fa-solid fa-trash"></i></button></div>`;
-            }
-            
-            let trClass = (isCapIn || isCapOut) ? 'bg-slate-100/50 text-slate-500' : 'hover:bg-slate-50 text-slate-800';
-            
-            tb.innerHTML += `<tr class="${trClass} transition border-b border-slate-50"><td class="p-3 md:p-4">${r.date}</td><td class="p-3 md:p-4"><span class="px-2.5 py-1 text-xs font-medium rounded-full ${r.type==='รายรับ'?'bg-green-100 text-green-700':'bg-red-100 text-red-700'}">${r.type}</span></td><td class="p-3 md:p-4"><p class="font-medium">${r.item}</p><p class="text-xs text-slate-500">${r.note || ''}</p></td><td class="p-3 md:p-4 text-right font-semibold ${r.type==='รายรับ'?'text-green-600':'text-red-600'}">฿${amt.toLocaleString('th-TH')}</td><td class="p-3 md:p-4 text-center">${eviHtml}</td><td class="p-3 md:p-4 text-center">${actionHtml}</td></tr>`;
-        });
-    } else {
-        tb.innerHTML = '<tr><td colspan="6" class="p-8 text-center text-slate-500 bg-slate-50">ไม่มีข้อมูลในช่วงเวลานี้</td></tr>';
+    if (rawData.length === 0) {
+        tb.innerHTML = '<tr><td colspan="6" class="p-6 text-center text-slate-500">ยังไม่มีรายการบัญชีในระบบ</td></tr>';
+        updateCards(0, 0, 0);
+        renderCharts({}, {}, {});
+        return;
     }
 
-    const fmt = n => `฿${Number(n).toLocaleString('th-TH')}`;
-    document.getElementById('c_card1').innerText = fmt(opInc);
-    document.getElementById('c_sub1').innerText = `+ ทุน/รับเข้า: ${fmt(capIn)}`;
-    document.getElementById('c_card2').innerText = fmt(opExp);
-    document.getElementById('c_sub2').innerText = `+ จ่ายออก/คืนทุน: ${fmt(capOut)}`;
-    document.getElementById('c_card3').innerText = fmt(opInc - opExp);
-    document.getElementById('c_card4').innerText = fmt((opInc + capIn) - (opExp + capOut));
-}
-
-function renderModuleCharts() {
-    let monthly = {}; let pInc = {}; let pExp = {};
+    // วนลูปข้อมูลสร้างตารางและจัดกลุ่มตัวเลข
     rawData.forEach(r => {
-        let d = r.date.substring(0, 7);
-        if(!monthly[d]) monthly[d] = { opInc: 0, opExp: 0 };
-        let amt = Number(r.amount);
-        let isCapIn = (r.item === 'ยอดยกมา' || r.item === 'ถอนเงินกองทุน' || r.item === 'เงินฝากธนาคาร');
-        let isCapOut = (r.item === 'คืนเงินกองทุน' || r.item === 'ถอนเงินจากธนาคาร');
+        let amount = Number(r.amount) || 0;
+        let d = new Date(r.date);
+        let sortKey = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
 
-        if(r.type === 'รายรับ' && !isCapIn) { monthly[d].opInc += amt; pInc[r.item] = (pInc[r.item]||0) + amt; }
-        else if(r.type === 'รายจ่าย' && !isCapOut) { monthly[d].opExp += amt; pExp[r.item] = (pExp[r.item]||0) + amt; }
+        if(!chartMonthly[sortKey]) chartMonthly[sortKey] = { label: `${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`, inc: 0, exp: 0 };
+
+        if (r.type === 'รายรับ') {
+            if (r.item === 'ขายสินค้า') { 
+                totalSales += amount; 
+                chartMonthly[sortKey].inc += amount;
+                incPieData[r.item + ' (' + r.method + ')'] = (incPieData[r.item + ' (' + r.method + ')'] || 0) + amount;
+            }
+            else if (r.item === 'ถอนเงินกองทุน') { 
+                totalFund += amount; 
+                chartMonthly[sortKey].inc += amount; 
+                incPieData[r.item] = (incPieData[r.item] || 0) + amount;
+            }
+            else if (r.item === 'ยอดยกมา') {
+                if (d < minDate) { minDate = d; initBroughtForward = amount; }
+            }
+        } else if (r.type === 'รายจ่าย') {
+            totalExp += amount;
+            chartMonthly[sortKey].exp += amount;
+            expPieData[r.item] = (expPieData[r.item] || 0) + amount;
+        }
+
+        // สร้าง HTML ตาราง
+        let eviHtml = r.evidence && r.evidence !== "undefined" ? `<a href="${r.evidence}" target="_blank" class="text-blue-500 hover:text-blue-700 bg-blue-50 px-2 py-1 rounded text-xs"><i class="fa-solid fa-file-invoice"></i> ดูหลักฐาน</a>` : '<span class="text-slate-300">-</span>';
+        
+        let actionHtml = '<span class="text-slate-300 text-xs">ไม่มีสิทธิ์</span>';
+        if (currentUser.role === 'God_Admin' || currentUser.role === `Admin_${currentModule}`) {
+            // ป้องกันปัญหาการพ่น JSON ใส่ HTML ตรงๆ ด้วยการส่งแค่ ID แล้วค่อยหาใน Array ตอนกด
+            actionHtml = `
+                <button onclick="triggerEdit('${r.id}')" class="text-amber-500 hover:text-amber-700 mx-1"><i class="fa-solid fa-edit"></i></button>
+                <button onclick="deleteTx('${r.id}')" class="text-red-500 hover:text-red-700 mx-1"><i class="fa-solid fa-trash"></i></button>
+            `;
+        }
+
+        tb.innerHTML += `
+            <tr class="hover:bg-slate-50 transition border-b">
+                <td class="p-3 whitespace-nowrap">${r.date}</td>
+                <td class="p-3"><span class="px-2 py-1 text-xs rounded-full ${r.type==='รายรับ'?'bg-green-100 text-green-700':'bg-red-100 text-red-700'} font-medium">${r.type}</span></td>
+                <td class="p-3">${r.item} <span class="text-xs text-slate-400 block">${r.note||''}</span></td>
+                <td class="p-3 text-right font-medium">฿${amount.toLocaleString('th-TH', {minimumFractionDigits: 2})}</td>
+                <td class="p-3 text-center">${eviHtml}</td>
+                <td class="p-3 text-center">${actionHtml}</td>
+            </tr>`;
     });
 
-    const mKeys = Object.keys(monthly).sort();
-    const mIncData = mKeys.map(k => monthly[k].opInc);
-    const mExpData = mKeys.map(k => monthly[k].opExp);
-    const mProfData = mKeys.map(k => monthly[k].opInc - monthly[k].opExp);
-
-    if(modBarInst) modBarInst.destroy();
-    modBarInst = new Chart(document.getElementById('modBarChart').getContext('2d'), { type: 'bar', data: { labels: mKeys, datasets: [{ label: 'รายรับ (ดำเนินงาน)', data: mIncData, backgroundColor: '#22c55e'}, { label: 'รายจ่าย (ดำเนินงาน)', data: mExpData, backgroundColor: '#ef4444'}] }, options: { responsive: true, maintainAspectRatio: false } });
-
-    if(modLineInst) modLineInst.destroy();
-    modLineInst = new Chart(document.getElementById('modLineChart').getContext('2d'), { type: 'line', data: { labels: mKeys, datasets: [{ label: 'กำไรสุทธิ', data: mProfData, borderColor: '#3b82f6', backgroundColor: 'rgba(59, 130, 246, 0.2)', fill: true, tension: 0.3 }] }, options: { responsive: true, maintainAspectRatio: false } });
-
-    if(modPieIncInst) modPieIncInst.destroy();
-    modPieIncInst = new Chart(document.getElementById('modPieInc').getContext('2d'), { type: 'doughnut', data: { labels: Object.keys(pInc), datasets: [{ data: Object.values(pInc), backgroundColor: ['#22c55e','#10b981','#84cc16','#eab308']}] }, options: { responsive: true, maintainAspectRatio: false } });
-
-    if(modPieExpInst) modPieExpInst.destroy();
-    modPieExpInst = new Chart(document.getElementById('modPieExp').getContext('2d'), { type: 'doughnut', data: { labels: Object.keys(pExp), datasets: [{ data: Object.values(pExp), backgroundColor: ['#ef4444','#f97316','#f43f5e','#a855f7']}] }, options: { responsive: true, maintainAspectRatio: false } });
-}
-
-// ==========================================
-// --- ระบบ Report ประจำเดือนแบบ Classic ---
-// ==========================================
-function openReportModal() { 
-    document.getElementById('reportModal').classList.remove('hidden'); 
-    document.body.classList.add('overflow-hidden');
+    // อัปเดตการ์ด
+    let profit = totalSales - totalExp;
+    let cashOnHand = (totalSales + totalFund + initBroughtForward) - totalExp;
+    updateCards(totalSales, totalExp, profit, cashOnHand);
     
-    // ตั้งชื่อหัวข้อให้ตรงกับ Module
-    const titles = { Fund: 'กองทุนฯ', Cafe: 'ร้านกาแฟสุขใจ', Shop: 'ร้านผลิตภัณฑ์' };
-    document.getElementById('r-moduleName').innerText = titles[currentModule];
+    // วาดกราฟ
+    renderCharts(chartMonthly, incPieData, expPieData);
+}
+
+function updateCards(inc, exp, profit, cash) {
+    document.getElementById('c_income').innerText = `฿${inc.toLocaleString('th-TH', {minimumFractionDigits: 2})}`;
+    document.getElementById('c_expense').innerText = `฿${exp.toLocaleString('th-TH', {minimumFractionDigits: 2})}`;
+    document.getElementById('c_profit').innerText = `฿${profit.toLocaleString('th-TH', {minimumFractionDigits: 2})}`;
+    document.getElementById('c_profit').className = profit >= 0 ? "text-2xl font-bold text-blue-600" : "text-2xl font-bold text-red-600";
+    document.getElementById('c_cash').innerText = `฿${(cash || 0).toLocaleString('th-TH', {minimumFractionDigits: 2})}`;
+}
+
+// --- Chart.js ---
+function renderCharts(monthly, incPie, expPie) {
+    const keys = Object.keys(monthly).sort();
+    const labels = keys.map(k => monthly[k].label);
+    const incData = keys.map(k => monthly[k].inc);
+    const expData = keys.map(k => monthly[k].exp);
+    const profData = keys.map(k => monthly[k].inc - monthly[k].exp);
+
+    // Main Chart (Bar + Line)
+    if(charts.main) charts.main.destroy();
+    charts.main = new Chart(document.getElementById('mainChart').getContext('2d'), {
+        data: {
+            labels: labels,
+            datasets: [
+                { type: 'line', label: 'กำไร (ยอดขาย-รายจ่าย)', data: profData, borderColor: '#3b82f6', backgroundColor: '#3b82f6', tension: 0.3, borderWidth: 3 },
+                { type: 'bar', label: 'รายรับ (รวมกองทุน)', data: incData, backgroundColor: '#22c55e' },
+                { type: 'bar', label: 'รายจ่าย', data: expData, backgroundColor: '#ef4444' }
+            ]
+        },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }
+    });
+
+    // Pie Charts
+    const pieOptions = { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right', labels: { boxWidth: 12, font: {size: 10} } } } };
     
-    loadMonthlyReport(); // โหลดข้อมูลทันทีเมื่อเปิด
+    if(charts.incPie) charts.incPie.destroy();
+    charts.incPie = new Chart(document.getElementById('incPieChart').getContext('2d'), { type: 'doughnut', data: { labels: Object.keys(incPie), datasets: [{ data: Object.values(incPie), backgroundColor: ['#22c55e', '#10b981', '#f59e0b', '#3b82f6'] }] }, options: pieOptions });
+    
+    if(charts.expPie) charts.expPie.destroy();
+    charts.expPie = new Chart(document.getElementById('expPieChart').getContext('2d'), { type: 'doughnut', data: { labels: Object.keys(expPie), datasets: [{ data: Object.values(expPie), backgroundColor: ['#ef4444', '#f97316', '#8b5cf6', '#ec4899'] }] }, options: pieOptions });
 }
 
-function closeReportModal() { 
-    document.getElementById('reportModal').classList.add('hidden'); 
-    document.body.classList.remove('overflow-hidden');
+// --- Forms & Actions ---
+function toggleEvi() {
+    if(document.getElementById('f_eviType').value === 'file') {
+        document.getElementById('f_file').classList.remove('hidden'); document.getElementById('f_link').classList.add('hidden');
+    } else {
+        document.getElementById('f_file').classList.add('hidden'); document.getElementById('f_link').classList.remove('hidden');
+    }
 }
 
-async function loadMonthlyReport() {
-    Swal.showLoading();
-    const month = document.getElementById('reportMonth').value;
-    const year = document.getElementById('reportYear').value;
-    const monthName = document.getElementById('reportMonth').options[document.getElementById('reportMonth').selectedIndex].text;
-    document.getElementById('r-monthYear').innerText = `${monthName} ${parseInt(year) + 543}`;
+function getBase64(file) {
+    return new Promise((res, rej) => {
+        const reader = new FileReader(); reader.readAsDataURL(file);
+        reader.onload = () => res(reader.result.replace(/^data:(.*,)?/, ''));
+        reader.onerror = e => rej(e);
+    });
+}
+
+async function submitForm(e) {
+    e.preventDefault();
+    const btn = document.getElementById('btnSave'); btn.innerText = 'กำลังอัปโหลดและบันทึก...'; btn.disabled = true;
+
+    let payload = {
+        module: currentModule, username: currentUser.username, rowIndex: document.getElementById('f_id').value,
+        date: document.getElementById('f_date').value, type: document.getElementById('f_type').value,
+        item: document.getElementById('f_item').value, method: document.getElementById('f_method').value,
+        amount: document.getElementById('f_amount').value, note: document.getElementById('f_note').value
+    };
+
+    if(document.getElementById('f_eviType').value === 'file') {
+        const f = document.getElementById('f_file').files[0];
+        if(f) {
+            if(f.size > 5242880) { Swal.fire('ไฟล์ใหญ่เกินไป', 'กรุณาอัปโหลดไฟล์ขนาดไม่เกิน 5MB', 'warning'); btn.innerText = 'บันทึกข้อมูล'; btn.disabled = false; return; }
+            payload.fileBase64 = await getBase64(f); payload.fileName = f.name; payload.fileMimeType = f.type;
+        }
+    } else {
+        payload.evidenceLink = document.getElementById('f_link').value;
+    }
 
     try {
-        const res = await (await fetch(CONFIG.API_URL, { 
-            method: 'POST', 
-            body: JSON.stringify({ action: 'get_monthly_report', payload: { module: currentModule, month, year } }) 
-        })).json();
-        
-        if (res.status === 'success') {
-            const fmt = n => Number(n).toLocaleString('th-TH', {minimumFractionDigits: 2, maximumFractionDigits: 2});
-            const d = res.data;
-            
-            document.getElementById('r-broughtForward').innerText = fmt(d.broughtForward);
-            document.getElementById('r-expenseGoods').innerText = fmt(d.expenseGoods);
-            document.getElementById('r-salesCash').innerText = fmt(d.salesCash);
-            document.getElementById('r-expenseSalary').innerText = fmt(d.expenseSalary);
-            document.getElementById('r-salesTransfer').innerText = fmt(d.salesTransfer);
-            document.getElementById('r-otherExp').innerText = fmt(d.otherExp);
-            document.getElementById('r-fundWithdrawal').innerText = fmt(d.fundWithdrawal + d.otherInc);
-            document.getElementById('r-totalIncome').innerText = fmt(d.totalIncomeRow);
-            document.getElementById('r-totalExpense').innerText = fmt(d.totalExpenseRow);
-            document.getElementById('r-totalSales').innerText = fmt(d.totalSales);
-            document.getElementById('r-deductExpense').innerText = fmt(d.totalExpenseRow);
-            document.getElementById('r-netProfit').innerText = fmt(d.netProfit);
-            document.getElementById('r-addBroughtForward').innerText = fmt(d.broughtForward);
-            document.getElementById('r-addFund').innerText = fmt(d.fundWithdrawal + d.otherInc);
-            document.getElementById('r-totalMoney').innerText = fmt(d.totalMoney);
-            document.getElementById('r-cashOnHand').innerText = fmt(d.cashOnHand);
-            
-            Swal.close();
-        } else {
-            Swal.fire('ข้อผิดพลาด', res.message, 'error');
+        const res = await (await fetch(API_URL, { method: 'POST', body: JSON.stringify({ action: 'save_tx', payload }) })).json();
+        if (res.status === 'success') { Swal.fire('สำเร็จ', res.message, 'success'); closeModal(); fetchData(); }
+        else Swal.fire('ผิดพลาด', res.message, 'error');
+    } catch (err) { Swal.fire('Error', 'ไม่สามารถเชื่อมต่อฐานข้อมูลได้', 'error'); }
+    finally { btn.innerText = 'บันทึกข้อมูล'; btn.disabled = false; }
+}
+
+function triggerEdit(id) {
+    const r = rawData.find(row => row.id === id);
+    if(!r) return;
+    document.getElementById('modalTitle').innerText = 'แก้ไขรายการ';
+    document.getElementById('f_id').value = r.id; 
+    document.getElementById('f_date').value = r.date;
+    document.getElementById('f_type').value = r.type; 
+    document.getElementById('f_item').value = r.item;
+    document.getElementById('f_method').value = r.method; 
+    document.getElementById('f_amount').value = r.amount;
+    document.getElementById('f_note').value = r.note; 
+    openModal();
+}
+
+function deleteTx(id) {
+    Swal.fire({ title: 'ยืนยันการลบ?', text: 'ข้อมูลนี้จะถูกลบออกจากฐานข้อมูลถาวร', icon: 'warning', showCancelButton: true, confirmButtonColor: '#d33', confirmButtonText: 'ใช่, ลบเลย' })
+    .then(async (result) => {
+        if (result.isConfirmed) {
+            Swal.fire({title: 'กำลังลบข้อมูล...', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); }});
+            try {
+                const res = await (await fetch(API_URL, { method: 'POST', body: JSON.stringify({ action: 'delete_tx', payload: { module: currentModule, rowIndex: id } }) })).json();
+                if(res.status === 'success') { Swal.fire('ลบสำเร็จ', '', 'success'); fetchData(); }
+                else Swal.fire('ผิดพลาด', res.message, 'error');
+            } catch(err) { Swal.fire('Error', 'ไม่สามารถลบได้', 'error'); }
         }
-    } catch (err) {
-        Swal.fire('Error', 'เชื่อมต่อขัดข้อง', 'error');
-    }
+    });
 }
 
-function exportPDF() { 
-    html2pdf().set({ margin: 0.5, filename: `Report_${currentModule}_${document.getElementById('r-monthYear').innerText}.pdf`.replace(/\s+/g, '_'), html2canvas: { scale: 2 }, jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' } }).from(document.getElementById('printableReport')).save(); 
+function openModal() { document.getElementById('txModal').classList.remove('hidden'); }
+function closeModal() { 
+    document.getElementById('txModal').classList.add('hidden'); 
+    document.getElementById('txForm').reset(); 
+    document.getElementById('f_id').value = ''; 
+    document.getElementById('modalTitle').innerText = 'บันทึกรายการ'; 
 }
-
-function exportExcel() { 
-    XLSX.writeFile(XLSX.utils.table_to_book(document.getElementById("reportTableExport"), {sheet: "Report"}), `Report_${currentModule}_${document.getElementById('r-monthYear').innerText}.xlsx`.replace(/\s+/g, '_')); 
-}
-
-// --- Form, Upload, and CRUD Logic ---
-function updateItemDropdown() {
-    const type = document.getElementById('f_type').value;
-    const select = document.getElementById('f_item_select');
-    select.innerHTML = '';
-    
-    let options = [];
-    if (currentModule === 'Fund') {
-        if (type === 'รายรับ') options = ['ยอดยกมา', 'เงินฝากธนาคาร', 'อื่นๆ'];
-        else options = ['ถอนเงินจากธนาคาร', 'อื่นๆ'];
-    } else {
-        if (type === 'รายรับ') options = ['ยอดยกมา', 'ขายสินค้า', 'ถอนเงินกองทุน', 'อื่นๆ'];
-        else options = ['ซื้อของ', 'เงินเดือน', 'คืนเงินกองทุน', 'อื่นๆ'];
-    }
-        
-    options.forEach(opt => select.add(new Option(opt, opt)));
-    toggleOtherItem();
-}
-
-function toggleOtherItem() {
-    const select = document.getElementById('f_item_select').value;
-    const otherInput = document.getElementById('f_item_other');
-    if (select === 'อื่นๆ') { otherInput.classList.remove('hidden'); otherInput.required = true; } 
-    else { otherInput.classList.add('hidden'); otherInput.required = false; otherInput.value = ''; }
-}
-
-function toggleEvi() { document.getElementById('f_eviType').value === 'file' ? (document.getElementById('f_file').classList.remove('hidden'), document.getElementById('f_link').classList.add('hidden')) : (document.getElementById('f_file').classList.add('hidden'), document.getElementById('f_link').classList.remove('hidden')); }
-function getBase64(file) { return new Promise((res, rej) => { const reader = new FileReader(); reader.readAsDataURL(file); reader.onload = () => res(reader.result.replace(/^data:(.*,)?/, '')); reader.onerror = e => rej(e); }); }
-
-async function submitForm(e) { 
-    e.preventDefault(); 
-    const btn = document.getElementById('btnSave'); btn.innerText = 'กำลังบันทึก...'; btn.disabled = true; 
-    
-    let finalItem = document.getElementById('f_item_select').value;
-    if (finalItem === 'อื่นๆ') finalItem = document.getElementById('f_item_other').value;
-
-    let payload = { module: currentModule, username: currentUser.username, rowIndex: document.getElementById('f_id').value, date: document.getElementById('f_date').value, type: document.getElementById('f_type').value, item: finalItem, method: document.getElementById('f_method').value, amount: document.getElementById('f_amount').value, note: document.getElementById('f_note').value }; 
-    
-    if(document.getElementById('f_eviType').value === 'file') { 
-        const f = document.getElementById('f_file').files[0]; 
-        if(f) { 
-            if(f.size > 5242880) { Swal.fire('ผิดพลาด', 'ไฟล์ขนาดเกิน 5MB', 'warning'); btn.innerText = 'บันทึกข้อมูล'; btn.disabled = false; return; } 
-            payload.fileBase64 = await getBase64(f); payload.fileName = f.name; payload.fileMimeType = f.type; 
-        } 
-    } else payload.evidenceLink = document.getElementById('f_link').value; 
-    
-    try { 
-        const res = await (await fetch(CONFIG.API_URL, { method: 'POST', body: JSON.stringify({ action: 'save_tx', payload }) })).json(); 
-        if (res.status === 'success') { Swal.fire({title: 'สำเร็จ', text: res.message, icon: 'success', timer: 1500, showConfirmButton: false}); closeModal(); fetchData(); } 
-        else Swal.fire('ผิดพลาด', res.message, 'error'); 
-    } catch (err) { Swal.fire('Error', 'ไม่สามารถเชื่อมต่อได้', 'error'); } 
-    finally { btn.innerText = 'บันทึกข้อมูล'; btn.disabled = false; } 
-}
-
-function editTx(r) { 
-    document.getElementById('modalFormTitle').innerText = 'แก้ไขรายการ'; document.getElementById('f_id').value = r.id; document.getElementById('f_date').value = r.date; document.getElementById('f_type').value = r.type; updateItemDropdown(); 
-    const select = document.getElementById('f_item_select'); const options = Array.from(select.options).map(o => o.value);
-    if (options.includes(r.item)) { select.value = r.item; toggleOtherItem(); } else { select.value = 'อื่นๆ'; toggleOtherItem(); document.getElementById('f_item_other').value = r.item; }
-    document.getElementById('f_method').value = r.method; document.getElementById('f_amount').value = r.amount; document.getElementById('f_note').value = r.note; openModal(); 
-}
-
-function deleteTx(id) { Swal.fire({ title: 'ยืนยันการลบ?', icon: 'warning', showCancelButton: true, confirmButtonColor: '#d33', confirmButtonText: 'ลบเลย', cancelButtonText: 'ยกเลิก' }).then(async (result) => { if (result.isConfirmed) { const res = await (await fetch(CONFIG.API_URL, { method: 'POST', body: JSON.stringify({ action: 'delete_tx', payload: { module: currentModule, rowIndex: id } }) })).json(); if(res.status === 'success') fetchData(); else Swal.fire('ผิดพลาด', res.message, 'error'); } }); }
-
-function openModal() { document.getElementById('txModal').classList.remove('hidden'); if (!document.getElementById('f_id').value) updateItemDropdown(); }
-function closeModal() { document.getElementById('txModal').classList.add('hidden'); document.getElementById('txForm').reset(); document.getElementById('f_id').value = ''; }
 function logout() { sessionStorage.removeItem('user'); window.location.href = 'index.html'; }
