@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>เข้าสู่ระบบ | รพ.จิตเวชเลยราชนครินทร์</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style> body { font-family: 'Sarabun', sans-serif; background-color: #f3f4f6; } </style>
+</head>
+<body class="flex items-center justify-center min-h-screen bg-gradient-to-br from-blue-100 to-indigo-200 p-4">
+
+    <div class="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-md">
+        <div class="text-center mb-6">
+            <h2 class="text-2xl font-bold text-gray-800">ระบบบริหารจัดการการเงิน</h2>
+            <p class="text-sm text-gray-500 mt-1">กองทุนเพื่อผู้ป่วยจิตเวชยากไร้ฯ</p>
+        </div>
+
+        <div id="loginForm">
+            <form onsubmit="doAuth(event, 'login')">
+                <input type="text" id="l_user" placeholder="Username" required class="w-full mb-4 px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
+                <input type="password" id="l_pass" placeholder="Password" required class="w-full mb-2 px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
+                <div class="text-right mb-4"><a href="#" onclick="toggleForm('forgotForm')" class="text-sm text-blue-600 hover:underline">ลืมรหัสผ่าน?</a></div>
+                <button type="submit" class="w-full bg-blue-600 text-white font-semibold py-2.5 rounded-lg hover:bg-blue-700 transition shadow">เข้าสู่ระบบ</button>
+            </form>
+            <p class="text-center text-sm text-gray-600 mt-4">ยังไม่มีบัญชี? <a href="#" onclick="toggleForm('regForm')" class="text-blue-600 font-semibold hover:underline">สมัครสมาชิก</a></p>
+        </div>
+
+        <div id="regForm" class="hidden">
+            <form onsubmit="doAuth(event, 'register')">
+                <input type="text" id="r_user" placeholder="Username" required class="w-full mb-3 px-4 py-2 border rounded-lg">
+                <input type="email" id="r_email" placeholder="E-mail" required class="w-full mb-3 px-4 py-2 border rounded-lg">
+                <input type="password" id="r_pass" placeholder="Password" required class="w-full mb-3 px-4 py-2 border rounded-lg">
+                <label class="flex items-start mb-4 bg-gray-50 p-2 rounded border">
+                    <input type="checkbox" id="r_pdpa" required class="mt-1 w-4 h-4 text-blue-600">
+                    <span class="ml-2 text-xs text-gray-600">ข้าพเจ้ายินยอมให้เก็บรวบรวมข้อมูลตาม พ.ร.บ. คุ้มครองข้อมูลส่วนบุคคล (PDPA)</span>
+                </label>
+                <button type="submit" class="w-full bg-green-600 text-white font-semibold py-2.5 rounded-lg hover:bg-green-700 shadow">ลงทะเบียน</button>
+            </form>
+            <p class="text-center text-sm mt-4"><a href="#" onclick="toggleForm('loginForm')" class="text-blue-600 hover:underline">กลับไปเข้าสู่ระบบ</a></p>
+        </div>
+
+        <div id="forgotForm" class="hidden">
+            <p class="text-sm text-gray-600 mb-4 text-center">กรอก E-mail ที่ใช้ลงทะเบียน ระบบจะส่งรหัสผ่านใหม่ไปให้ท่าน</p>
+            <form onsubmit="doAuth(event, 'forgot_password')">
+                <input type="email" id="f_email" placeholder="E-mail ของท่าน" required class="w-full mb-4 px-4 py-2 border rounded-lg">
+                <button type="submit" class="w-full bg-orange-500 text-white font-semibold py-2.5 rounded-lg hover:bg-orange-600 shadow">ส่งรหัสผ่านใหม่</button>
+            </form>
+            <p class="text-center text-sm mt-4"><a href="#" onclick="toggleForm('loginForm')" class="text-blue-600 hover:underline">กลับไปเข้าสู่ระบบ</a></p>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = 'https://script.google.com/macros/s/AKfycbza4EAFjZbKSpvUx_xoL9YRSnLWetFVBMEsIJVdpR_sgJtNhotvOiOms7T5YZAlDzGpgA/exec'; // ใส่ URL จาก Google Apps Script
+
+        // Check Session: ถ้า Login แล้วให้ข้ามไปหน้า Dashboard
+        if(sessionStorage.getItem('user')) window.location.href = 'dashboard.html';
+
+        function toggleForm(showId) {
+            ['loginForm', 'regForm', 'forgotForm'].forEach(id => document.getElementById(id).classList.add('hidden'));
+            document.getElementById(showId).classList.remove('hidden');
+        }
+
+        async function doAuth(e, action) {
+            e.preventDefault();
+            const btn = e.target.querySelector('button');
+            const ogText = btn.innerText; btn.innerText = 'กำลังประมวลผล...'; btn.disabled = true;
+
+            let payload = {};
+            if(action === 'login') payload = { username: l_user.value, password: l_pass.value };
+            if(action === 'register') payload = { username: r_user.value, email: r_email.value, password: r_pass.value, pdpa: r_pdpa.checked };
+            if(action === 'forgot_password') payload = { email: f_email.value };
+
+            try {
+                const res = await (await fetch(API_URL, { method: 'POST', body: JSON.stringify({ action, payload }) })).json();
+                if(res.status === 'success') {
+                    if(action === 'login') {
+                        sessionStorage.setItem('user', JSON.stringify(res.user));
+                        window.location.href = 'dashboard.html';
+                    } else {
+                        Swal.fire('สำเร็จ', res.message, 'success'); toggleForm('loginForm'); e.target.reset();
+                    }
+                } else Swal.fire('ข้อผิดพลาด', res.message, 'error');
+            } catch(err) { Swal.fire('Error', 'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้', 'error'); }
+            finally { btn.innerText = ogText; btn.disabled = false; }
+        }
+    </script>
+</body>
+</html>
