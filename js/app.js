@@ -221,19 +221,27 @@ function generateReport() {
         let itemStr = String(r.item).trim();
         
         let actualAmt = amt;
+        
+        // 1. ดักจับ 'ยอดยกมา' ให้คิดแค่ก้อนแรกสุดในระบบก้อนเดียว
         if (r.type === 'รายรับ' && itemStr === 'ยอดยกมา') {
             if (!hasFoundInitialBF) { hasFoundInitialBF = true; } 
             else { actualAmt = 0; } // ดักจับยอดยกมาซ้ำซ้อน ไม่นำมาคำนวณ
         }
 
+        // 2. ดักจับ 'เงินโอน' (สำหรับร้านกาแฟ/ผลิตภัณฑ์ ห้ามนำเงินโอนไปรวมเป็นกระแสเงินสดสะสมในอดีต)
+        if (r.type === 'รายรับ' && currentModule !== 'Fund' && r.method === 'เงินโอน') {
+            actualAmt = 0; 
+        }
+
+        // แยกข้อมูลเดือนก่อนหน้า (ไปทบเป็นยอดยกมา) กับข้อมูลเดือนปัจจุบัน
         if(d.getFullYear() < y || (d.getFullYear() === y && d.getMonth()+1 < m)) {
             if(r.type === 'รายรับ') runningBalance += actualAmt; else runningBalance -= actualAmt;
         } else if(d.getFullYear() === y && d.getMonth()+1 === m) {
-            // ยอดยกมาไม่ต้องโชว์ในตาราง เพราะใบบัญชีมีช่องให้มันอยู่แล้ว ยกเว้นมันบังเอิญเกิดในเดือนนี้พอดีก็นำไปบวกเป็นฐาน
+            // ยอดยกมาไม่ต้องโชว์ในตารางรายละเอียดรายงาน 
             if (!(r.type === 'รายรับ' && itemStr === 'ยอดยกมา')) {
                 monthData.push(r);
             } else if (actualAmt > 0) {
-                runningBalance += actualAmt;
+                runningBalance += actualAmt; // ถ้ายอดยกมาก้อนแรกเกิดในเดือนนี้พอดี ให้ไปบวกเป็นฐานเงินสด
             }
         }
     });
@@ -241,7 +249,7 @@ function generateReport() {
     let bf = runningBalance;
     const f = n => (n||0).toLocaleString('th-TH', {minimumFractionDigits:2});
     
-    if(currentModule === 'Fund') { 
+    if(currentModule === 'Fund') { // Bank Statement Format
         let bal = bf;
         let trs = monthData.map(r => {
             if(r.type === 'รายรับ') bal += Number(r.amount); else bal -= Number(r.amount);
@@ -260,7 +268,7 @@ function generateReport() {
                 </tbody>
             </table>
         </div>`;
-    } else { 
+    } else { // Summary Format
         let sCash=0, sTrans=0, sFund=0, eGoods=0, eSal=0, eFund=0;
         monthData.forEach(r => {
             let amt = Number(r.amount)||0;
