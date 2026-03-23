@@ -318,9 +318,24 @@ function updateItemDropdown() {
     const select = document.getElementById('f_item_select');
     select.innerHTML = '';
     
-    let options = type === 'รายรับ' 
-        ? ['ยอดยกมา', 'ขายสินค้า', 'ถอนเงินกองทุน', 'อื่นๆ'] 
-        : ['ซื้อของ', 'เงินเดือน', 'คืนเงินกองทุน', 'อื่นๆ'];
+    let options = [];
+
+    // ตรวจสอบว่ากำลังอยู่หน้าโมดูลไหน
+    if (currentModule === 'Fund') {
+        // ตัวเลือกสำหรับ บัญชีหลักกองทุนฯ (บัญชีธนาคาร)
+        if (type === 'รายรับ') {
+            options = ['ยอดยกมา', 'เงินฝากธนาคาร', 'อื่นๆ'];
+        } else {
+            options = ['ถอนเงินจากธนาคาร', 'อื่นๆ'];
+        }
+    } else {
+        // ตัวเลือกสำหรับ ร้านกาแฟ และ ร้านผลิตภัณฑ์
+        if (type === 'รายรับ') {
+            options = ['ยอดยกมา', 'ขายสินค้า', 'ถอนเงินกองทุน', 'อื่นๆ'];
+        } else {
+            options = ['ซื้อของ', 'เงินเดือน', 'คืนเงินกองทุน', 'อื่นๆ'];
+        }
+    }
         
     options.forEach(opt => select.add(new Option(opt, opt)));
     toggleOtherItem();
