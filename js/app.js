@@ -1,6 +1,7 @@
 let currentUser = null;
-let currentModule = 'Overview'; // เริ่มต้นที่หน้า Overview
+let currentModule = 'Overview'; 
 let rawData = [];
+let charts = { main: null, incPie: null, expPie: null };
 
 document.addEventListener('DOMContentLoaded', () => {
     const sessionStr = sessionStorage.getItem('user');
@@ -9,9 +10,11 @@ document.addEventListener('DOMContentLoaded', () => {
     currentUser = JSON.parse(sessionStr);
     document.getElementById('userDisplay').innerHTML = `<b>${currentUser.username}</b><br>สิทธิ์: ${currentUser.role}`;
 
-    if (typeof API_URL === 'undefined' || !API_URL.startsWith('http')) {
-        Swal.fire('Error', 'ไม่พบ API_URL กรุณาตรวจสอบ js/config.js', 'error'); return;
-    }
+    const yr = new Date().getFullYear();
+    const ySel = document.getElementById('r_year');
+    for(let i = yr-2; i <= yr+2; i++) ySel.options.add(new Option(i+543, i));
+    ySel.value = yr; document.getElementById('r_month').value = new Date().getMonth()+1;
+
     switchModule('Overview');
 });
 
@@ -22,78 +25,52 @@ function switchModule(mod) {
     currentModule = mod;
     ['Overview', 'Fund', 'Cafe', 'Shop'].forEach(btn => {
         const el = document.getElementById(`nav-${btn}`);
-        if(el) el.className = (btn === mod) ? "w-full flex items-center p-3 rounded-lg bg-blue-600 transition shadow text-white" : "w-full flex items-center p-3 rounded-lg hover:bg-slate-700 transition text-white";
+        if(el) el.className = (btn === mod) ? "w-full flex items-center p-3 rounded-lg bg-blue-600 shadow text-white" : "w-full flex items-center p-3 rounded-lg hover:bg-slate-700 text-white";
     });
     
-    const titles = { Overview: 'ภาพรวมระบบ (Overview)', Fund: 'บัญชีกองทุนฯ', Cafe: 'ร้านกาแฟสุขใจ', Shop: 'ร้านผลิตภัณฑ์ฯ' };
+    const titles = { Overview: 'ภาพรวมระบบ', Fund: 'บัญชีกองทุนฯ', Cafe: 'ร้านกาแฟสุขใจ', Shop: 'ร้านผลิตภัณฑ์ฯ' };
     document.getElementById('moduleTitle').innerText = titles[mod];
     document.getElementById('mobileTitle').innerText = titles[mod];
+
+    // ทำลายกราฟทิ้งก่อนเพื่อเคลียร์ Canvas แก้บั๊ก getContext
+    if(charts.main) { charts.main.destroy(); charts.main = null; }
+    if(charts.incPie) { charts.incPie.destroy(); charts.incPie = null; }
+    if(charts.expPie) { charts.expPie.destroy(); charts.expPie = null; }
 
     if (mod === 'Overview') {
         document.getElementById('viewOverview').classList.remove('hidden');
         document.getElementById('viewModule').classList.add('hidden');
+        document.getElementById('btnReport').classList.add('hidden');
         document.getElementById('btnAdd').classList.add('hidden');
         fetchOverview();
     } else {
         document.getElementById('viewOverview').classList.add('hidden');
         document.getElementById('viewModule').classList.remove('hidden');
-        const btn = document.getElementById('btnAdd');
-        if (currentUser.role === 'God_Admin' || currentUser.role === `Admin_${mod}`) btn.classList.remove('hidden');
-        else btn.classList.add('hidden');
+        document.getElementById('btnReport').classList.remove('hidden');
+        
+        const btnA = document.getElementById('btnAdd');
+        if (currentUser.role === 'God_Admin' || currentUser.role === `Admin_${mod}`) btnA.classList.remove('hidden');
+        else btnA.classList.add('hidden');
         
         fetchData();
     }
 }
 
-// --- Dynamic Dropdowns ---
-function updateItemOptions() {
-    const type = document.getElementById('f_type').value;
-    const itemEl = document.getElementById('f_item');
-    itemEl.innerHTML = '';
-    
-    let opts = [];
-    if (currentModule === 'Fund') {
-        if (type === 'รายรับ') opts = ['ยอดยกมา', 'เงินโอน (ปรับสมุด)', 'เงินสด', 'อื่นๆ'];
-        else opts = ['ถอนเงิน', 'อื่นๆ'];
-    } else { // Cafe & Shop
-        if (type === 'รายรับ') opts = ['ยอดยกมา', 'ยอดขาย', 'เบิกเงินกองทุน', 'อื่นๆ'];
-        else opts = ['เงินเดือน', 'ซื้อของ', 'คืนเงินกองทุน', 'อื่นๆ'];
-    }
-    
-    opts.forEach(o => itemEl.add(new Option(o, o)));
-    toggleFundExpenseDetails();
-}
-
-function toggleFundExpenseDetails() {
-    const type = document.getElementById('f_type').value;
-    const panel = document.getElementById('fundExpenseDetails');
-    // โชว์ฟิลด์เสริมเฉพาะ บัญชีกองทุน -> รายจ่าย (ถอนเงิน/อื่นๆ)
-    if (currentModule === 'Fund' && type === 'รายจ่าย') {
-        panel.classList.remove('hidden');
-    } else {
-        panel.classList.add('hidden');
-        document.getElementById('f_subItem').value = '';
-        document.getElementById('f_department').value = '';
-    }
-}
-
-// --- Fetch Logic ---
 async function fetchOverview() {
-    Swal.showLoading();
+    document.getElementById('ov_fund').innerText = 'กำลังโหลด...';
     try {
         const res = await (await fetch(API_URL, { method: 'POST', body: JSON.stringify({ action: 'get_overview' }) })).json();
-        Swal.close();
         if(res.status === 'success') {
             document.getElementById('ov_fund').innerText = '฿' + (res.data.fund||0).toLocaleString('th-TH',{minimumFractionDigits:2});
             document.getElementById('ov_cafe').innerText = '฿' + (res.data.cafe||0).toLocaleString('th-TH',{minimumFractionDigits:2});
             document.getElementById('ov_shop').innerText = '฿' + (res.data.shop||0).toLocaleString('th-TH',{minimumFractionDigits:2});
         }
-    } catch (e) { Swal.fire('Error', 'โหลดภาพรวมไม่สำเร็จ', 'error'); }
+    } catch (e) { console.error(e); }
 }
 
 async function fetchData() {
     const tb = document.getElementById('tableBody');
-    tb.innerHTML = '<tr><td colspan="6" class="p-10 text-center"><i class="fa-solid fa-spinner fa-spin text-blue-500 text-3xl mb-3"></i><br>กำลังดึงข้อมูล...</td></tr>';
+    tb.innerHTML = '<tr><td colspan="6" class="p-10 text-center text-blue-500"><i class="fa-solid fa-spinner fa-spin text-3xl mb-3"></i><br>กำลังดึงข้อมูล...</td></tr>';
     try {
         const res = await (await fetch(API_URL, { method: 'POST', body: JSON.stringify({ action: 'get_data', payload: { module: currentModule } }) })).json();
         if (res.status === 'success') { rawData = res.data; renderData(); }
@@ -102,123 +79,173 @@ async function fetchData() {
 
 function renderData() {
     const tb = document.getElementById('tableBody'); tb.innerHTML = '';
-    
-    let opInc = 0, opExp = 0; // รายรับ-รายจ่าย ดำเนินงาน (ยอดขาย, เงินโอนปกติ / ต้นทุน, เงินเดือน)
-    let nonOpInc = 0, nonOpExp = 0; // รับ-จ่าย อื่นๆ (ยอดยกมา, เบิกเงิน, คืนเงิน)
+    let opInc=0, opExp=0, nonOpInc=0, nonOpExp=0;
+    let cMonth={}, pInc={}, pExp={};
 
     if (rawData.length === 0) {
         tb.innerHTML = '<tr><td colspan="6" class="p-6 text-center text-slate-500">ยังไม่มีรายการบัญชี</td></tr>';
-        updateCards(0, 0, 0, 0); return;
+        updateCards(0, 0, 0, 0); renderCharts(cMonth, pInc, pExp); return;
     }
 
     rawData.forEach(r => {
         let amt = Number(r.amount) || 0;
-        
-        // --- การคัดแยก ผลประกอบการ (Performance) vs กระแสเงินสด ---
+        let d = new Date(r.date);
+        let sKey = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+        if(!cMonth[sKey]) cMonth[sKey] = { label: `${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`, inc: 0, exp: 0 };
+
         if (r.type === 'รายรับ') {
-            if (['ยอดยกมา', 'เบิกเงินกองทุน'].includes(r.item)) nonOpInc += amt;
-            else opInc += amt; // ยอดขาย, เงินโอน, เงินสด, อื่นๆ ถือเป็น Operating Income
+            if (['ยอดยกมา', 'เบิกเงินกองทุน', 'ถอนเงินกองทุน'].includes(r.item)) { nonOpInc += amt; }
+            else { opInc += amt; cMonth[sKey].inc += amt; pInc[r.item] = (pInc[r.item]||0)+amt; }
         } else if (r.type === 'รายจ่าย') {
-            if (['คืนเงินกองทุน', 'ถอนเงิน'].includes(r.item)) nonOpExp += amt;
-            else opExp += amt; // ซื้อของ, เงินเดือน, อื่นๆ ถือเป็น Operating Expense
+            if (['คืนเงินกองทุน', 'ถอนเงิน'].includes(r.item)) { nonOpExp += amt; }
+            else { opExp += amt; cMonth[sKey].exp += amt; pExp[r.item] = (pExp[r.item]||0)+amt; }
         }
 
-        let act = '<span class="text-slate-300 text-xs">Read-Only</span>';
+        let act = '-';
         if (currentUser.role === 'God_Admin' || currentUser.role === `Admin_${currentModule}`) {
-            act = `<button onclick="editTx('${r.id}')" class="text-amber-500 mx-1"><i class="fa-solid fa-edit"></i></button>
-                   <button onclick="delTx('${r.id}')" class="text-red-500 mx-1"><i class="fa-solid fa-trash"></i></button>`;
+            act = `<button onclick="editTx('${r.id}')" class="text-amber-500 mx-1"><i class="fa-solid fa-edit"></i></button><button onclick="delTx('${r.id}')" class="text-red-500 mx-1"><i class="fa-solid fa-trash"></i></button>`;
         }
-        let evi = (r.evidence && r.evidence.length > 5) ? `<a href="${r.evidence}" target="_blank" class="text-blue-600 hover:underline"><i class="fa-solid fa-file"></i></a>` : '-';
-        
-        // แสดงรายละเอียดกองทุน (ถ้ามี)
-        let noteHtml = r.note;
-        if(currentModule === 'Fund' && r.subItem) {
-            noteHtml = `<span class="text-blue-600 font-semibold">[${r.subItem}]</span> ${r.department ? 'หน่วย: '+r.department : ''} <br> ${r.note}`;
-        }
+        let evi = (r.evidence && r.evidence.length > 5) ? `<a href="${r.evidence}" target="_blank" class="text-blue-600 underline text-xs">หลักฐาน</a>` : '-';
+        let noteHtml = (currentModule === 'Fund' && r.subItem) ? `<span class="text-blue-600">[${r.subItem}]</span> ${r.department||''} <br> ${r.note}` : r.note;
 
-        tb.innerHTML += `
-            <tr class="hover:bg-slate-50 border-b">
-                <td class="p-4">${r.date}</td>
-                <td class="p-4"><span class="px-2 py-1 text-xs rounded-full ${r.type==='รายรับ'?'bg-green-100 text-green-700':'bg-red-100 text-red-700'}">${r.type}</span></td>
-                <td class="p-4"><span class="font-medium">${r.item}</span> <br><span class="text-xs text-slate-500">${noteHtml}</span></td>
-                <td class="p-4 text-right font-medium">฿${amt.toLocaleString('th-TH',{minimumFractionDigits:2})}</td>
-                <td class="p-4 text-center">${evi}</td>
-                <td class="p-4 text-center">${act}</td>
-            </tr>`;
+        tb.innerHTML += `<tr class="border-b"><td class="p-3">${r.date}</td><td class="p-3"><span class="px-2 py-1 text-xs rounded ${r.type==='รายรับ'?'bg-green-100 text-green-700':'bg-red-100 text-red-700'}">${r.type}</span></td><td class="p-3 font-medium">${r.item} <br><span class="text-xs text-slate-500 font-normal">${noteHtml}</span></td><td class="p-3 text-right">฿${amt.toLocaleString('th-TH',{minimumFractionDigits:2})}</td><td class="p-3 text-center">${evi}</td><td class="p-3 text-center">${act}</td></tr>`;
     });
 
-    let profit = opInc - opExp; // กำไรจากผลประกอบการจริง
-    let cashOnHand = (opInc + nonOpInc) - (opExp + nonOpExp); // กระแสเงินสดรวมทั้งหมด
-    
-    // เปลี่ยนข้อความบนการ์ดให้ตรงบริบท
-    document.getElementById('lbl_inc').innerText = currentModule === 'Fund' ? 'รายรับรวม (เงินโอน/เงินสด)' : 'รายได้ดำเนินงาน (ยอดขาย)';
-    updateCards(opInc, opExp, profit, cashOnHand);
+    document.getElementById('lbl_inc').innerText = currentModule === 'Fund' ? 'รายรับ (เงินโอน/เงินสด)' : 'รายได้ดำเนินงาน (ยอดขาย)';
+    updateCards(opInc, opExp, opInc-opExp, (opInc+nonOpInc)-(opExp+nonOpExp));
+    renderCharts(cMonth, pInc, pExp);
 }
 
 function updateCards(inc, exp, pro, cash) {
     const f = n => '฿' + (n||0).toLocaleString('th-TH', {minimumFractionDigits:2});
-    document.getElementById('c_income').innerText = f(inc);
-    document.getElementById('c_expense').innerText = f(exp);
-    document.getElementById('c_profit').innerText = f(pro);
-    document.getElementById('c_profit').className = pro >= 0 ? "text-lg md:text-2xl font-bold text-blue-600 mt-1" : "text-lg md:text-2xl font-bold text-red-600 mt-1";
+    document.getElementById('c_income').innerText = f(inc); document.getElementById('c_expense').innerText = f(exp);
+    document.getElementById('c_profit').innerText = f(pro); document.getElementById('c_profit').className = pro>=0?"text-2xl font-bold text-blue-600 mt-1":"text-2xl font-bold text-red-600 mt-1";
     document.getElementById('c_cash').innerText = f(cash);
 }
 
-// --- CRUD ---
-function toggleEvi() { document.getElementById('f_file').classList.toggle('hidden', document.getElementById('f_eviType').value !== 'file'); document.getElementById('f_link').classList.toggle('hidden', document.getElementById('f_eviType').value === 'file'); }
+function renderCharts(m, pI, pE) {
+    if(document.getElementById('viewModule').classList.contains('hidden')) return; // ป้องกันวาดกราฟตอนซ่อนจอ
+    
+    const k = Object.keys(m).sort();
+    if(charts.main) charts.main.destroy();
+    charts.main = new Chart(document.getElementById('mainChart').getContext('2d'), { data: { labels: k.map(x=>m[x].label), datasets: [ { type: 'line', label: 'ผลประกอบการ', data: k.map(x=>m[x].inc-m[x].exp), borderColor: '#3b82f6', backgroundColor: '#3b82f6' }, { type: 'bar', label: 'รายรับดำเนินงาน', data: k.map(x=>m[x].inc), backgroundColor: '#22c55e' }, { type: 'bar', label: 'รายจ่ายดำเนินงาน', data: k.map(x=>m[x].exp), backgroundColor: '#ef4444' } ] }, options: { responsive: true, maintainAspectRatio: false } });
+
+    const opt = { responsive: true, maintainAspectRatio: false, plugins:{legend:{position:'right'}} };
+    if(charts.incPie) charts.incPie.destroy(); charts.incPie = new Chart(document.getElementById('incPieChart').getContext('2d'), { type:'doughnut', data:{labels:Object.keys(pI), datasets:[{data:Object.values(pI), backgroundColor:['#22c55e','#10b981','#eab308']}]}, options:opt});
+    if(charts.expPie) charts.expPie.destroy(); charts.expPie = new Chart(document.getElementById('expPieChart').getContext('2d'), { type:'doughnut', data:{labels:Object.keys(pE), datasets:[{data:Object.values(pE), backgroundColor:['#ef4444','#f97316','#8b5cf6']}]}, options:opt});
+}
+
+// --- Forms ---
+function updateItemOptions() {
+    const t = document.getElementById('f_type').value; const el = document.getElementById('f_item'); el.innerHTML = '';
+    let opts = currentModule === 'Fund' ? (t==='รายรับ'?['ยอดยกมา','เงินโอน (ปรับสมุด)','เงินสด','อื่นๆ']:['ถอนเงิน','อื่นๆ']) : (t==='รายรับ'?['ยอดยกมา','ยอดขาย','เบิกเงินกองทุน','อื่นๆ']:['เงินเดือน','ซื้อของ','คืนเงินกองทุน','อื่นๆ']);
+    opts.forEach(o => el.add(new Option(o,o))); toggleFundExpenseDetails();
+}
+function toggleFundExpenseDetails() { document.getElementById('fundExpenseDetails').classList.toggle('hidden', !(currentModule==='Fund' && document.getElementById('f_type').value==='รายจ่าย')); }
+function toggleEvi() { document.getElementById('f_file').classList.toggle('hidden', document.getElementById('f_eviType').value!=='file'); document.getElementById('f_link').classList.toggle('hidden', document.getElementById('f_eviType').value==='file'); }
 function getBase64(f) { return new Promise((res,rej) => { const r = new FileReader(); r.readAsDataURL(f); r.onload = ()=>res(r.result.replace(/^data:(.*,)?/,'')); r.onerror=rej; }); }
 
 async function submitForm(e) {
-    e.preventDefault();
-    const btn = document.getElementById('btnSave'); btn.innerText = 'กำลังบันทึก...'; btn.disabled = true;
-
-    let pay = {
-        module: currentModule, username: currentUser.username, rowIndex: document.getElementById('f_id').value,
-        date: document.getElementById('f_date').value, type: document.getElementById('f_type').value,
-        item: document.getElementById('f_item').value, method: document.getElementById('f_method').value,
-        amount: document.getElementById('f_amount').value, note: document.getElementById('f_note').value,
-        subItem: document.getElementById('f_subItem').value, department: document.getElementById('f_department').value
-    };
-
-    if(document.getElementById('f_eviType').value === 'file') {
-        const f = document.getElementById('f_file').files[0];
-        if(f) {
-            if(f.size > 5242880) { Swal.fire('Error', 'ไฟล์เกิน 5MB', 'warning'); btn.innerText='บันทึกข้อมูล'; btn.disabled=false; return; }
-            pay.fileBase64 = await getBase64(f); pay.fileName = f.name; pay.fileMimeType = f.type;
-        }
-    } else pay.evidenceLink = document.getElementById('f_link').value;
-
-    try {
-        const res = await (await fetch(API_URL, { method: 'POST', body: JSON.stringify({ action:'save_tx', payload:pay }) })).json();
-        if(res.status==='success') { Swal.fire('สำเร็จ', res.message, 'success'); closeModal(); fetchData(); }
-        else Swal.fire('Error', res.message, 'error');
-    } catch(err) { Swal.fire('Error', 'บันทึกไม่สำเร็จ', 'error'); }
-    finally { btn.innerText = 'บันทึกข้อมูล'; btn.disabled = false; }
+    e.preventDefault(); const btn = document.getElementById('btnSave'); btn.innerText = 'กำลังบันทึก...'; btn.disabled = true;
+    let pay = { module: currentModule, username: currentUser.username, rowIndex: document.getElementById('f_id').value, date: document.getElementById('f_date').value, type: document.getElementById('f_type').value, item: document.getElementById('f_item').value, method: document.getElementById('f_method').value, amount: document.getElementById('f_amount').value, note: document.getElementById('f_note').value, subItem: document.getElementById('f_subItem').value, department: document.getElementById('f_department').value };
+    if(document.getElementById('f_eviType').value === 'file' && document.getElementById('f_file').files[0]) { pay.fileBase64 = await getBase64(document.getElementById('f_file').files[0]); pay.fileName = document.getElementById('f_file').files[0].name; pay.fileMimeType = document.getElementById('f_file').files[0].type; }
+    else pay.evidenceLink = document.getElementById('f_link').value;
+    try { const res = await (await fetch(API_URL, { method: 'POST', body: JSON.stringify({ action:'save_tx', payload:pay }) })).json(); if(res.status==='success') { Swal.fire('สำเร็จ', res.message, 'success'); closeModal(); fetchData(); } else Swal.fire('Error', res.message, 'error'); } 
+    catch(err) { Swal.fire('Error', 'บันทึกไม่สำเร็จ', 'error'); } finally { btn.innerText = 'บันทึกข้อมูล'; btn.disabled = false; }
 }
 
-function editTx(id) {
-    const r = rawData.find(x => x.id === id); if(!r) return;
-    document.getElementById('modalTitle').innerText = 'แก้ไขรายการ';
-    document.getElementById('f_id').value = r.id; document.getElementById('f_date').value = r.date;
-    document.getElementById('f_type').value = r.type; updateItemOptions(); document.getElementById('f_item').value = r.item;
-    document.getElementById('f_method').value = r.method; document.getElementById('f_amount').value = r.amount;
-    document.getElementById('f_note').value = r.note; 
-    document.getElementById('f_subItem').value = r.subItem || '';
-    document.getElementById('f_department').value = r.department || '';
-    toggleFundExpenseDetails();
-    openModal();
-}
-
-function delTx(id) {
-    Swal.fire({title:'ลบรายการ?', icon:'warning', showCancelButton:true, confirmButtonColor:'#d33', confirmButtonText:'ลบเลย'}).then(async (res) => {
-        if(res.isConfirmed) {
-            Swal.showLoading();
-            const r = await (await fetch(API_URL, { method: 'POST', body: JSON.stringify({ action: 'delete_tx', payload: { module: currentModule, rowIndex: id } }) })).json();
-            if(r.status==='success') { Swal.fire('ลบแล้ว','','success'); fetchData(); } else Swal.fire('Error', r.message, 'error');
-        }
-    });
-}
-
+function editTx(id) { const r = rawData.find(x => x.id === id); if(!r) return; document.getElementById('f_id').value = r.id; document.getElementById('f_date').value = r.date; document.getElementById('f_type').value = r.type; updateItemOptions(); document.getElementById('f_item').value = r.item; document.getElementById('f_method').value = r.method; document.getElementById('f_amount').value = r.amount; document.getElementById('f_note').value = r.note; document.getElementById('f_subItem').value = r.subItem||''; document.getElementById('f_department').value = r.department||''; toggleFundExpenseDetails(); document.getElementById('txModal').classList.remove('hidden'); }
+function delTx(id) { Swal.fire({title:'ลบรายการ?', icon:'warning', showCancelButton:true}).then(async (r) => { if(r.isConfirmed) { const res = await (await fetch(API_URL, { method: 'POST', body: JSON.stringify({ action: 'delete_tx', payload: { module: currentModule, rowIndex: id } }) })).json(); if(res.status==='success') fetchData(); } }); }
 function openModal() { document.getElementById('txModal').classList.remove('hidden'); updateItemOptions(); }
 function closeModal() { document.getElementById('txModal').classList.add('hidden'); document.getElementById('txForm').reset(); document.getElementById('f_id').value=''; }
 function logout() { sessionStorage.removeItem('user'); window.location.href = 'index.html'; }
+
+// --- Report Generation ---
+function openReportModal() { document.getElementById('reportModal').classList.remove('hidden'); }
+
+function generateReport() {
+    document.getElementById('reportModal').classList.add('hidden');
+    const m = parseInt(document.getElementById('r_month').value), y = parseInt(document.getElementById('r_year').value);
+    const mName = document.getElementById('r_month').options[document.getElementById('r_month').selectedIndex].text;
+    const pa = document.getElementById('printArea');
+    
+    // Sort & Filter data
+    let sortedData = [...rawData].sort((a,b) => new Date(a.date) - new Date(b.date));
+    let bf = 0; // Brought Forward (ยอดยกมา)
+    let monthData = [];
+    
+    sortedData.forEach(r => {
+        let d = new Date(r.date), amt = Number(r.amount)||0;
+        if(d.getFullYear() < y || (d.getFullYear() === y && d.getMonth()+1 < m)) {
+            if(r.type === 'รายรับ') bf += amt; else bf -= amt;
+        } else if(d.getFullYear() === y && d.getMonth()+1 === m) {
+            monthData.push(r);
+        }
+    });
+
+    const f = n => (n||0).toLocaleString('th-TH', {minimumFractionDigits:2});
+    
+    if(currentModule === 'Fund') { // Bank Statement Format
+        let bal = bf;
+        let trs = monthData.map(r => {
+            if(r.type === 'รายรับ') bal += Number(r.amount); else bal -= Number(r.amount);
+            let desc = r.item + (r.subItem ? ` - ${r.subItem}` : '');
+            return `<tr><td style="border:1px solid #000; padding:5px;">${r.date}</td><td style="border:1px solid #000; padding:5px;">${desc}</td><td style="border:1px solid #000; padding:5px; text-align:right;">${r.type==='รายรับ'?f(r.amount):'-'}</td><td style="border:1px solid #000; padding:5px; text-align:right;">${r.type==='รายจ่าย'?f(r.amount):'-'}</td><td style="border:1px solid #000; padding:5px; text-align:right;">${f(bal)}</td></tr>`;
+        }).join('');
+        
+        pa.innerHTML = `<div style="font-family:'Sarabun'; color:#000;">
+            <h2 style="text-align:center; font-size:24px; font-weight:bold;">บัญชีกองทุนเพื่อผู้ป่วยจิตเวชยากไร้</h2>
+            <h3 style="text-align:center; font-size:18px;">Statement ประจำเดือน ${mName} ${y+543}</h3>
+            <table style="width:100%; border-collapse:collapse; margin-top:20px; font-size:14px;">
+                <thead><tr style="background:#f0f0f0;"><th style="border:1px solid #000; padding:5px;">วันที่</th><th style="border:1px solid #000; padding:5px;">รายการ</th><th style="border:1px solid #000; padding:5px;">ฝั่งเข้า (In)</th><th style="border:1px solid #000; padding:5px;">ฝั่งออก (Out)</th><th style="border:1px solid #000; padding:5px;">คงเหลือ (Balance)</th></tr></thead>
+                <tbody>
+                    <tr><td style="border:1px solid #000; padding:5px;" colspan="4">ยอดยกมา</td><td style="border:1px solid #000; padding:5px; text-align:right; font-weight:bold;">${f(bf)}</td></tr>
+                    ${trs}
+                </tbody>
+            </table>
+        </div>`;
+    } else { // Summary Format (Cafe/Shop)
+        let sCash=0, sTrans=0, sFund=0, eGoods=0, eSal=0, eFund=0;
+        monthData.forEach(r => {
+            let amt = Number(r.amount)||0;
+            if(r.type === 'รายรับ') {
+                if(r.item === 'ยอดขาย' && r.method === 'เงินสด') sCash += amt;
+                else if(r.item === 'ยอดขาย' && r.method === 'เงินโอน') sTrans += amt;
+                else if(r.item === 'เบิกเงินกองทุน') sFund += amt;
+            } else {
+                if(r.item === 'ซื้อของ') eGoods += amt;
+                else if(r.item === 'เงินเดือน') eSal += amt;
+                else if(r.item === 'คืนเงินกองทุน') eFund += amt;
+            }
+        });
+        let tSales = sCash + sTrans; let tExp = eGoods + eSal; let net = tSales - tExp;
+        let tMoney = net + bf + sFund; let cHand = tMoney - sTrans - eFund;
+
+        pa.innerHTML = `<div style="font-family:'Sarabun'; color:#000;">
+            <h2 style="text-align:center; font-size:20px; font-weight:bold;">สรุปรายรับ-รายจ่าย ${currentModule==='Cafe'?'ร้านกาแฟสุขใจ':'ร้านผลิตภัณฑ์ฯ'}</h2>
+            <h3 style="text-align:center; font-size:16px; margin-bottom:20px;">ประจำเดือน ${mName} ${y+543}</h3>
+            <table style="width:100%; border-collapse:collapse; font-size:14px;">
+                <tr style="background:#fff4cc; text-align:center;"><th colspan="2" style="border:1px solid #000; padding:5px;">รายรับ</th><th colspan="2" style="border:1px solid #000; padding:5px;">รายจ่าย</th></tr>
+                <tr><td style="border:1px solid #000; padding:5px; background:#ffdeb3;">ยอดยกมา</td><td style="border:1px solid #000; padding:5px; text-align:right; background:#ffdeb3;">${f(bf)}</td><td style="border:1px solid #000; padding:5px;">ค่าซื้อของ</td><td style="border:1px solid #000; padding:5px; text-align:right;">${f(eGoods)}</td></tr>
+                <tr><td style="border:1px solid #000; padding:5px;">ขาย (สด)</td><td style="border:1px solid #000; padding:5px; text-align:right;">${f(sCash)}</td><td style="border:1px solid #000; padding:5px;">เงินเดือน</td><td style="border:1px solid #000; padding:5px; text-align:right;">${f(eSal)}</td></tr>
+                <tr><td style="border:1px solid #000; padding:5px;">ขาย (โอน)</td><td style="border:1px solid #000; padding:5px; text-align:right;">${f(sTrans)}</td><td style="border:1px solid #000; padding:5px;">คืนกองทุน</td><td style="border:1px solid #000; padding:5px; text-align:right;">${f(eFund)}</td></tr>
+                <tr><td style="border:1px solid #000; padding:5px; background:#ffdeb3;">เบิกกองทุน</td><td style="border:1px solid #000; padding:5px; text-align:right; background:#ffdeb3;">${f(sFund)}</td><td style="border:1px solid #000; padding:5px;"></td><td style="border:1px solid #000; padding:5px;"></td></tr>
+                <tr style="background:#d4edda; font-weight:bold;"><td style="border:1px solid #000; padding:5px;">รวมรับสิ้น</td><td style="border:1px solid #000; padding:5px; text-align:right;">${f(bf+tSales+sFund)}</td><td style="border:1px solid #000; padding:5px;">รวมจ่ายทั้งสิ้น</td><td style="border:1px solid #000; padding:5px; text-align:right;">${f(tExp+eFund)}</td></tr>
+                <tr><td colspan="4" style="border:none; padding:10px;"></td></tr>
+                <tr><td colspan="2" style="border:1px solid #000; padding:5px;">รายได้ขายรวม</td><td colspan="2" style="border:1px solid #000; padding:5px; text-align:right;"><u>${f(tSales)}</u></td></tr>
+                <tr><td colspan="2" style="border:1px solid #000; padding:5px;">หัก ค่าใช้จ่าย</td><td colspan="2" style="border:1px solid #000; padding:5px; text-align:right;"><u>${f(tExp)}</u></td></tr>
+                <tr style="background:#cce5ff; font-weight:bold;"><td colspan="2" style="border:1px solid #000; padding:5px;">กำไร/ขาดทุนสุทธิ</td><td colspan="2" style="border:1px solid #000; padding:5px; text-align:right; color:red;">${f(net)}</td></tr>
+                <tr style="background:#ffdeb3;"><td colspan="2" style="border:1px solid #000; padding:5px;">บวก ยอดยกมา</td><td colspan="2" style="border:1px solid #000; padding:5px; text-align:right;"><u>${f(bf)}</u></td></tr>
+                <tr style="background:#ffdeb3;"><td colspan="2" style="border:1px solid #000; padding:5px;">บวก เบิกกองทุน</td><td colspan="2" style="border:1px solid #000; padding:5px; text-align:right;"><u>${f(sFund)}</u></td></tr>
+                <tr style="background:#d4edda; font-weight:bold;"><td colspan="2" style="border:1px solid #000; padding:5px;">รวมเป็นเงินทั้งสิ้น</td><td colspan="2" style="border:1px solid #000; padding:5px; text-align:right;">${f(tMoney)}</td></tr>
+                <tr><td colspan="2" style="border:1px solid #000; padding:5px;">หัก คืนกองทุน</td><td colspan="2" style="border:1px solid #000; padding:5px; text-align:right;"><u>${f(eFund)}</u></td></tr>
+                <tr style="font-weight:bold;"><td colspan="2" style="border:1px solid #000; padding:5px;">คงเหลือเงินสดในมือ (หักโอน)</td><td colspan="2" style="border:1px solid #000; padding:5px; text-align:right;">${f(cHand)}</td></tr>
+            </table>
+        </div>`;
+    }
+    
+    // สั่ง Print หน้าจอ
+    pa.classList.remove('hidden');
+    window.print();
+    setTimeout(() => { pa.classList.add('hidden'); pa.innerHTML = ''; }, 1000);
+}
