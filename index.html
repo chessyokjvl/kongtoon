@@ -21,8 +21,12 @@
             <form onsubmit="doAuth(event, 'login')">
                 <input type="text" id="l_user" placeholder="Username" required class="w-full mb-4 px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition">
                 <input type="password" id="l_pass" placeholder="Password" required class="w-full mb-2 px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition">
-                <button type="submit" class="w-full bg-blue-600 text-white font-bold py-3 rounded-lg hover:bg-blue-700 transition shadow mt-4">เข้าสู่ระบบ</button>
+                
+                <button type="submit" class="w-full bg-blue-600 text-white font-bold py-3 rounded-lg hover:bg-blue-700 transition shadow mt-4">เข้าสู่ระบบ (สำหรับเจ้าหน้าที่)</button>
             </form>
+            
+            <button onclick="loginAsGuest()" class="w-full bg-slate-100 text-slate-700 font-bold py-3 rounded-lg hover:bg-slate-200 border border-slate-300 transition shadow-sm mt-3">เข้าชมแบบบุคคลทั่วไป (Guest)</button>
+
             <p class="text-center text-sm text-gray-600 mt-5">ยังไม่มีบัญชี? <a href="#" onclick="toggleForm('regForm')" class="text-blue-600 font-semibold hover:underline">สมัครสมาชิก</a></p>
         </div>
 
@@ -36,6 +40,15 @@
                     <span class="ml-2 text-xs text-gray-600">ข้าพเจ้ายินยอมให้เก็บรวบรวมข้อมูลตาม PDPA</span>
                 </label>
                 <button type="submit" class="w-full bg-green-600 text-white font-semibold py-2.5 rounded-lg hover:bg-green-700 shadow">ลงทะเบียน</button>
+            </form>
+            <p class="text-center text-sm mt-4"><a href="#" onclick="toggleForm('loginForm')" class="text-blue-600 hover:underline">กลับไปเข้าสู่ระบบ</a></p>
+        </div>
+
+        <div id="forgotForm" class="hidden-form">
+            <p class="text-sm text-gray-600 mb-4 text-center">กรอก E-mail ที่ใช้ลงทะเบียน ระบบจะส่งรหัสผ่านใหม่ไปให้ท่าน</p>
+            <form onsubmit="doAuth(event, 'forgot_password')">
+                <input type="email" id="f_email" placeholder="E-mail ของท่าน" required class="w-full mb-4 px-4 py-2 border rounded-lg">
+                <button type="submit" class="w-full bg-orange-500 text-white font-semibold py-2.5 rounded-lg hover:bg-orange-600 shadow">ส่งรหัสผ่านใหม่</button>
             </form>
             <p class="text-center text-sm mt-4"><a href="#" onclick="toggleForm('loginForm')" class="text-blue-600 hover:underline">กลับไปเข้าสู่ระบบ</a></p>
         </div>
