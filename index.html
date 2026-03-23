@@ -3,27 +3,27 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>เข้าสู่ระบบ | รพ.จิตเวชเลยราชนครินทร์</title>
+    <title>เข้าสู่ระบบ | ระบบจัดการบัญชี</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <link rel="stylesheet" href="css/style.css">
 </head>
-<body class="flex items-center justify-center min-h-screen bg-gradient-to-br from-blue-100 to-indigo-200 p-4">
+<body class="flex items-center justify-center min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
 
     <div class="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-md">
         <div class="text-center mb-6">
+            <img src="https://www.rploei.go.th/ec2/wp-content/uploads/2017/08/cropped-cropped-cropped-3.png" alt="Logo" class="h-20 mx-auto mb-4 object-contain">
             <h2 class="text-2xl font-bold text-gray-800">ระบบจัดการบัญชี</h2>
-            <p class="text-sm text-gray-500 mt-1">กองทุนเพื่อผู้ป่วยจิตเวชยากไร้ฯ</p>
+            <p class="text-sm text-gray-500 mt-1">โรงพยาบาลจิตเวชเลยราชนครินทร์</p>
         </div>
 
         <div id="loginForm">
             <form onsubmit="doAuth(event, 'login')">
-                <input type="text" id="l_user" placeholder="Username" required class="w-full mb-4 px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
-                <input type="password" id="l_pass" placeholder="Password" required class="w-full mb-2 px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
-                <div class="text-right mb-4"><a href="#" onclick="toggleForm('forgotForm')" class="text-sm text-blue-600 hover:underline">ลืมรหัสผ่าน?</a></div>
-                <button type="submit" class="w-full bg-blue-600 text-white font-semibold py-2.5 rounded-lg hover:bg-blue-700 transition shadow">เข้าสู่ระบบ</button>
+                <input type="text" id="l_user" placeholder="Username" required class="w-full mb-4 px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition">
+                <input type="password" id="l_pass" placeholder="Password" required class="w-full mb-2 px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition">
+                <button type="submit" class="w-full bg-blue-600 text-white font-bold py-3 rounded-lg hover:bg-blue-700 transition shadow mt-4">เข้าสู่ระบบ</button>
             </form>
-            <p class="text-center text-sm text-gray-600 mt-4">ยังไม่มีบัญชี? <a href="#" onclick="toggleForm('regForm')" class="text-blue-600 font-semibold hover:underline">สมัครสมาชิก</a></p>
+            <p class="text-center text-sm text-gray-600 mt-5">ยังไม่มีบัญชี? <a href="#" onclick="toggleForm('regForm')" class="text-blue-600 font-semibold hover:underline">สมัครสมาชิก</a></p>
         </div>
 
         <div id="regForm" class="hidden-form">
@@ -33,18 +33,9 @@
                 <input type="password" id="r_pass" placeholder="Password" required class="w-full mb-3 px-4 py-2 border rounded-lg">
                 <label class="flex items-start mb-4 bg-gray-50 p-2 rounded border">
                     <input type="checkbox" id="r_pdpa" required class="mt-1 w-4 h-4 text-blue-600">
-                    <span class="ml-2 text-xs text-gray-600">ข้าพเจ้ายินยอมให้เก็บรวบรวมข้อมูลตาม พ.ร.บ. คุ้มครองข้อมูลส่วนบุคคล (PDPA)</span>
+                    <span class="ml-2 text-xs text-gray-600">ข้าพเจ้ายินยอมให้เก็บรวบรวมข้อมูลตาม PDPA</span>
                 </label>
                 <button type="submit" class="w-full bg-green-600 text-white font-semibold py-2.5 rounded-lg hover:bg-green-700 shadow">ลงทะเบียน</button>
-            </form>
-            <p class="text-center text-sm mt-4"><a href="#" onclick="toggleForm('loginForm')" class="text-blue-600 hover:underline">กลับไปเข้าสู่ระบบ</a></p>
-        </div>
-
-        <div id="forgotForm" class="hidden-form">
-            <p class="text-sm text-gray-600 mb-4 text-center">กรอก E-mail ที่ใช้ลงทะเบียน ระบบจะส่งรหัสผ่านใหม่ไปให้ท่าน</p>
-            <form onsubmit="doAuth(event, 'forgot_password')">
-                <input type="email" id="f_email" placeholder="E-mail ของท่าน" required class="w-full mb-4 px-4 py-2 border rounded-lg">
-                <button type="submit" class="w-full bg-orange-500 text-white font-semibold py-2.5 rounded-lg hover:bg-orange-600 shadow">ส่งรหัสผ่านใหม่</button>
             </form>
             <p class="text-center text-sm mt-4"><a href="#" onclick="toggleForm('loginForm')" class="text-blue-600 hover:underline">กลับไปเข้าสู่ระบบ</a></p>
         </div>
