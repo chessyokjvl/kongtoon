@@ -3,8 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard | รพ.จิตเวชเลยราชนครินทร์</title>
-    
+    <title>ระบบจัดการบัญชี | รพ.จิตเวชเลยราชนครินทร์</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -15,13 +14,16 @@
 
     <aside class="w-64 bg-slate-800 text-white flex flex-col hidden md:flex transition-all shadow-xl z-20">
         <div class="p-5 text-center border-b border-slate-700">
-            <h1 class="text-xl font-bold text-blue-400">ระบบจัดการบัญชี</h1>
+            <img src="https://www.rploei.go.th/ec2/wp-content/uploads/2017/08/cropped-cropped-cropped-3.png" class="h-12 mx-auto mb-3 bg-white p-1 rounded">
+            <h1 class="text-lg font-bold text-blue-400">ระบบจัดการบัญชี</h1>
             <p class="text-xs text-slate-300 mt-1" id="userDisplay">กำลังตรวจสอบสิทธิ์...</p>
         </div>
-        <nav class="flex-1 p-4 space-y-2">
-            <button onclick="switchModule('Fund')" id="nav-Fund" class="w-full flex items-center p-3 rounded-lg bg-blue-600 transition shadow"><i class="fa-solid fa-vault w-6"></i> บัญชีธนาคาร</button>
+        <nav class="flex-1 p-4 space-y-2 overflow-y-auto">
+            <button onclick="switchModule('Overview')" id="nav-Overview" class="w-full flex items-center p-3 rounded-lg hover:bg-slate-700 transition"><i class="fa-solid fa-chart-pie w-6"></i> ภาพรวมระบบ</button>
+            <div class="my-2 border-b border-slate-700"></div>
+            <button onclick="switchModule('Fund')" id="nav-Fund" class="w-full flex items-center p-3 rounded-lg bg-blue-600 transition shadow"><i class="fa-solid fa-vault w-6"></i> บัญชีกองทุนฯ</button>
             <button onclick="switchModule('Cafe')" id="nav-Cafe" class="w-full flex items-center p-3 rounded-lg hover:bg-slate-700 transition"><i class="fa-solid fa-mug-hot w-6"></i> ร้านกาแฟสุขใจ</button>
-            <button onclick="switchModule('Shop')" id="nav-Shop" class="w-full flex items-center p-3 rounded-lg hover:bg-slate-700 transition"><i class="fa-solid fa-store w-6"></i> ร้านผลิตภัณฑ์ผู้ป่วย</button>
+            <button onclick="switchModule('Shop')" id="nav-Shop" class="w-full flex items-center p-3 rounded-lg hover:bg-slate-700 transition"><i class="fa-solid fa-store w-6"></i> ร้านผลิตภัณฑ์ฯ</button>
         </nav>
         <div class="p-4 border-t border-slate-700">
             <button onclick="logout()" class="w-full flex items-center p-3 text-red-400 hover:bg-slate-700 rounded-lg transition"><i class="fa-solid fa-sign-out-alt w-6"></i> ออกจากระบบ</button>
@@ -30,11 +32,11 @@
 
     <main class="flex-1 flex flex-col h-full overflow-y-auto">
         <header class="bg-white shadow-sm p-4 flex justify-between items-center md:hidden z-10 relative">
-            <h1 class="font-bold text-lg text-slate-800" id="mobileTitle">บัญชีกองทุนฯ</h1>
-            <div class="flex gap-4">
-                <button onclick="openMenu()" class="text-blue-600"><i class="fa-solid fa-bars text-xl"></i></button>
-                <button onclick="logout()" class="text-red-500"><i class="fa-solid fa-sign-out-alt text-xl"></i></button>
+            <div class="flex items-center gap-3">
+                <img src="https://www.rploei.go.th/ec2/wp-content/uploads/2017/08/cropped-cropped-cropped-3.png" class="h-8">
+                <h1 class="font-bold text-lg text-slate-800" id="mobileTitle">ระบบจัดการบัญชี</h1>
             </div>
+            <button onclick="openMenu()" class="text-blue-600"><i class="fa-solid fa-bars text-xl"></i></button>
         </header>
 
         <div id="mobileMenu" class="fixed inset-0 bg-slate-800 text-white z-50 flex flex-col hidden">
@@ -43,71 +45,78 @@
                 <button onclick="closeMenu()" class="text-white text-2xl"><i class="fa-solid fa-times"></i></button>
             </div>
             <nav class="flex-1 p-4 space-y-2">
-                <button onclick="switchModule('Fund'); closeMenu()" class="w-full text-left p-4 bg-slate-700 rounded-lg"><i class="fa-solid fa-vault mr-2"></i> กองทุนผู้ป่วยฯ</button>
+                <button onclick="switchModule('Overview'); closeMenu()" class="w-full text-left p-4 bg-slate-700 rounded-lg"><i class="fa-solid fa-chart-pie mr-2"></i> ภาพรวมระบบ</button>
+                <button onclick="switchModule('Fund'); closeMenu()" class="w-full text-left p-4 bg-slate-700 rounded-lg"><i class="fa-solid fa-vault mr-2"></i> บัญชีกองทุนฯ</button>
                 <button onclick="switchModule('Cafe'); closeMenu()" class="w-full text-left p-4 bg-slate-700 rounded-lg"><i class="fa-solid fa-mug-hot mr-2"></i> ร้านกาแฟสุขใจ</button>
-                <button onclick="switchModule('Shop'); closeMenu()" class="w-full text-left p-4 bg-slate-700 rounded-lg"><i class="fa-solid fa-store mr-2"></i> ร้านผลิตภัณฑ์</button>
+                <button onclick="switchModule('Shop'); closeMenu()" class="w-full text-left p-4 bg-slate-700 rounded-lg"><i class="fa-solid fa-store mr-2"></i> ร้านผลิตภัณฑ์ฯ</button>
+                <button onclick="logout()" class="w-full text-left p-4 mt-4 bg-red-900 rounded-lg"><i class="fa-solid fa-sign-out-alt mr-2"></i> ออกจากระบบ</button>
             </nav>
         </div>
 
-        <div class="p-4 md:p-6 pb-20">
+        <div class="p-4 md:p-6 pb-20 w-full max-w-7xl mx-auto">
+            
             <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
-                <h2 class="text-2xl font-bold text-slate-800" id="moduleTitle">บัญชีกองทุนเพื่อผู้ป่วยจิตเวชยากไร้</h2>
+                <h2 class="text-2xl font-bold text-slate-800" id="moduleTitle">กำลังโหลด...</h2>
                 <button id="btnAdd" onclick="openModal()" class="hidden bg-blue-600 text-white px-5 py-2.5 rounded-lg shadow hover:bg-blue-700 transition w-full md:w-auto"><i class="fa-solid fa-plus mr-2"></i>บันทึกรายการ</button>
             </div>
 
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-                <div class="bg-white p-4 rounded-xl shadow-sm border-l-4 border-green-500">
-                    <p class="text-xs md:text-sm text-slate-500">รายรับรวม (ยอดขาย)</p>
-                    <h3 class="text-lg md:text-2xl font-bold text-green-600 mt-1" id="c_income">฿0.00</h3>
-                </div>
-                <div class="bg-white p-4 rounded-xl shadow-sm border-l-4 border-red-500">
-                    <p class="text-xs md:text-sm text-slate-500">รายจ่ายรวม</p>
-                    <h3 class="text-lg md:text-2xl font-bold text-red-600 mt-1" id="c_expense">฿0.00</h3>
-                </div>
-                <div class="bg-white p-4 rounded-xl shadow-sm border-l-4 border-blue-500">
-                    <p class="text-xs md:text-sm text-slate-500">กำไรสุทธิ</p>
-                    <h3 class="text-lg md:text-2xl font-bold text-blue-600 mt-1" id="c_profit">฿0.00</h3>
-                </div>
-                <div class="bg-white p-4 rounded-xl shadow-sm border-l-4 border-amber-500">
-                    <p class="text-xs md:text-sm text-slate-500">เงินสดคงเหลือ</p>
-                    <h3 class="text-lg md:text-2xl font-bold text-amber-600 mt-1" id="c_cash">฿0.00</h3>
+            <div id="viewOverview" class="hidden">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                    <div class="bg-gradient-to-br from-blue-500 to-blue-700 p-6 rounded-2xl shadow-lg text-white">
+                        <div class="flex items-center gap-4 mb-4"><i class="fa-solid fa-vault text-3xl opacity-80"></i><h3 class="text-xl font-bold">บัญชีกองทุนฯ (หลัก)</h3></div>
+                        <p class="text-sm opacity-80 mb-1">เงินสดคงเหลือ</p><h2 class="text-4xl font-bold" id="ov_fund">฿0.00</h2>
+                    </div>
+                    <div class="bg-gradient-to-br from-amber-500 to-orange-600 p-6 rounded-2xl shadow-lg text-white">
+                        <div class="flex items-center gap-4 mb-4"><i class="fa-solid fa-mug-hot text-3xl opacity-80"></i><h3 class="text-xl font-bold">ร้านกาแฟสุขใจ</h3></div>
+                        <p class="text-sm opacity-80 mb-1">เงินสดคงเหลือ</p><h2 class="text-4xl font-bold" id="ov_cafe">฿0.00</h2>
+                    </div>
+                    <div class="bg-gradient-to-br from-emerald-500 to-green-700 p-6 rounded-2xl shadow-lg text-white">
+                        <div class="flex items-center gap-4 mb-4"><i class="fa-solid fa-store text-3xl opacity-80"></i><h3 class="text-xl font-bold">ร้านผลิตภัณฑ์ฯ</h3></div>
+                        <p class="text-sm opacity-80 mb-1">เงินสดคงเหลือ</p><h2 class="text-4xl font-bold" id="ov_shop">฿0.00</h2>
+                    </div>
                 </div>
             </div>
 
-            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-                <div class="bg-white p-4 rounded-xl shadow-sm lg:col-span-2">
-                    <h4 class="text-center font-semibold mb-2 text-slate-700">รายรับ - รายจ่าย - กำไร</h4>
-                    <div style="position: relative; height: 300px; width: 100%;"><canvas id="mainChart"></canvas></div>
+            <div id="viewModule">
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                    <div class="bg-white p-4 rounded-xl shadow-sm border-l-4 border-green-500">
+                        <p class="text-xs md:text-sm text-slate-500" id="lbl_inc">รายได้ดำเนินงาน (ยอดขาย)</p>
+                        <h3 class="text-lg md:text-2xl font-bold text-green-600 mt-1" id="c_income">฿0.00</h3>
+                    </div>
+                    <div class="bg-white p-4 rounded-xl shadow-sm border-l-4 border-red-500">
+                        <p class="text-xs md:text-sm text-slate-500" id="lbl_exp">รายจ่ายดำเนินงาน (ต้นทุน)</p>
+                        <h3 class="text-lg md:text-2xl font-bold text-red-600 mt-1" id="c_expense">฿0.00</h3>
+                    </div>
+                    <div class="bg-slate-800 p-4 rounded-xl shadow-sm border-l-4 border-blue-400">
+                        <p class="text-xs md:text-sm text-slate-300">ผลประกอบการ (กำไร/ขาดทุน)</p>
+                        <h3 class="text-lg md:text-2xl font-bold text-blue-400 mt-1" id="c_profit">฿0.00</h3>
+                    </div>
+                    <div class="bg-white p-4 rounded-xl shadow-sm border-l-4 border-amber-500">
+                        <p class="text-xs md:text-sm text-slate-500">รวมกระแสเงินสดคงเหลือทั้งหมด</p>
+                        <h3 class="text-lg md:text-2xl font-bold text-amber-600 mt-1" id="c_cash">฿0.00</h3>
+                    </div>
                 </div>
-                <div class="bg-white p-4 rounded-xl shadow-sm">
-                    <h4 class="text-center font-semibold mb-2 text-slate-700">สัดส่วนรายรับ</h4>
-                    <div style="position: relative; height: 130px; width: 100%;"><canvas id="incPieChart"></canvas></div>
-                    <h4 class="text-center font-semibold mt-4 mb-2 text-slate-700">สัดส่วนรายจ่าย</h4>
-                    <div style="position: relative; height: 130px; width: 100%;"><canvas id="expPieChart"></canvas></div>
-                </div>
-            </div>
 
-            <div class="bg-white rounded-xl shadow-sm overflow-hidden">
-                <div class="p-4 bg-slate-50 border-b flex justify-between items-center">
-                    <h3 class="font-bold text-slate-700">รายการรับ-จ่าย</h3>
-                    <button onclick="fetchData()" class="text-sm text-blue-600 hover:text-blue-800"><i class="fa-solid fa-rotate mr-1"></i>รีเฟรช</button>
-                </div>
-                <div class="overflow-x-auto">
-                    <table class="w-full text-left text-sm text-slate-600 min-w-[800px]">
-                        <thead class="bg-slate-100 text-slate-800">
-                            <tr>
-                                <th class="p-4 w-24">วันที่</th>
-                                <th class="p-4 w-24">ประเภท</th>
-                                <th class="p-4">รายการ / หมายเหตุ</th>
-                                <th class="p-4 w-32 text-right">จำนวนเงิน</th>
-                                <th class="p-4 w-28 text-center">หลักฐาน</th>
-                                <th class="p-4 w-24 text-center">จัดการ</th>
-                            </tr>
-                        </thead>
-                        <tbody id="tableBody" class="divide-y">
-                            <tr><td colspan="6" class="p-6 text-center text-slate-500">กำลังเตรียมระบบ...</td></tr>
-                        </tbody>
-                    </table>
+                <div class="bg-white rounded-xl shadow-sm overflow-hidden">
+                    <div class="p-4 bg-slate-50 border-b flex justify-between items-center">
+                        <h3 class="font-bold text-slate-700">รายการรับ-จ่าย</h3>
+                        <button onclick="fetchData()" class="text-sm text-blue-600 hover:text-blue-800"><i class="fa-solid fa-rotate mr-1"></i>รีเฟรช</button>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-sm text-slate-600 min-w-[900px]">
+                            <thead class="bg-slate-100 text-slate-800">
+                                <tr>
+                                    <th class="p-4 w-24">วันที่</th>
+                                    <th class="p-4 w-24">ประเภท</th>
+                                    <th class="p-4">รายการ / หมายเหตุ</th>
+                                    <th class="p-4 w-32 text-right">จำนวนเงิน</th>
+                                    <th class="p-4 w-28 text-center">หลักฐาน</th>
+                                    <th class="p-4 w-24 text-center">จัดการ</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tableBody" class="divide-y"></tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         </div>
@@ -122,28 +131,48 @@
             <form id="txForm" onsubmit="submitForm(event)">
                 <input type="hidden" id="f_id">
                 <div class="grid grid-cols-2 gap-4 mb-4">
-                    <div><label class="block text-sm font-medium mb-1">วันที่</label><input type="date" id="f_date" required class="w-full border rounded-lg p-2.5 focus:ring-2 outline-none"></div>
-                    <div><label class="block text-sm font-medium mb-1">ประเภท</label><select id="f_type" onchange="updateItemOptions()" required class="w-full border rounded-lg p-2.5 focus:ring-2 outline-none"><option value="รายรับ">รายรับ</option><option value="รายจ่าย">รายจ่าย</option></select></div>
+                    <div><label class="block text-sm font-medium mb-1">วันที่</label><input type="date" id="f_date" required class="w-full border rounded-lg p-2 focus:ring-2 outline-none"></div>
+                    <div><label class="block text-sm font-medium mb-1">ประเภท</label><select id="f_type" onchange="updateItemOptions()" required class="w-full border rounded-lg p-2 focus:ring-2 outline-none"><option value="รายรับ">รายรับ</option><option value="รายจ่าย">รายจ่าย</option></select></div>
                 </div>
                 <div class="grid grid-cols-2 gap-4 mb-4">
-                    <div><label class="block text-sm font-medium mb-1">รายการ</label><select id="f_item" required class="w-full border rounded-lg p-2.5 focus:ring-2 outline-none"></select></div>
-                    <div><label class="block text-sm font-medium mb-1">ช่องทาง</label><select id="f_method" class="w-full border rounded-lg p-2.5 focus:ring-2 outline-none"><option value="-">-</option><option value="เงินสด">เงินสด</option><option value="เงินโอน">เงินโอน</option></select></div>
+                    <div><label class="block text-sm font-medium mb-1">รายการ</label><select id="f_item" onchange="toggleFundExpenseDetails()" required class="w-full border rounded-lg p-2 focus:ring-2 outline-none"></select></div>
+                    <div><label class="block text-sm font-medium mb-1">ช่องทาง</label><select id="f_method" class="w-full border rounded-lg p-2 focus:ring-2 outline-none"><option value="-">-</option><option value="เงินสด">เงินสด</option><option value="เงินโอน">เงินโอน</option></select></div>
                 </div>
+
+                <div id="fundExpenseDetails" class="hidden bg-blue-50 p-3 rounded-lg border border-blue-100 mb-4">
+                    <p class="text-xs font-bold text-blue-800 mb-2"><i class="fa-solid fa-circle-info mr-1"></i> รายละเอียดการเบิกจ่ายกองทุน</p>
+                    <div class="mb-2">
+                        <label class="block text-xs font-medium mb-1">หมวดหมู่การใช้จ่าย</label>
+                        <select id="f_subItem" class="w-full border rounded-lg p-2 text-sm">
+                            <option value="">-- ระบุหมวดหมู่ --</option>
+                            <option value="เงินลงทุนซื้อของให้ร้านกาแฟ">เงินลงทุนซื้อของให้ร้านกาแฟ</option>
+                            <option value="เงินลงทุนซื้อของให้ร้านขายผลิตภัณฑ์">เงินลงทุนซื้อของให้ร้านขายผลิตภัณฑ์</option>
+                            <option value="จัดซื้ออุปกรณ์ทางการแพทย์">จัดซื้ออุปกรณ์ทางการแพทย์</option>
+                            <option value="จัดซื้อยา/เวชภัณฑ์">จัดซื้อยา/เวชภัณฑ์</option>
+                            <option value="ซื้ออุปกรณ์เบ็ดเตล็ด">ซื้ออุปกรณ์เบ็ดเตล็ด</option>
+                            <option value="อื่นๆ">อื่นๆ</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium mb-1">หน่วยงานที่เบิก</label>
+                        <input type="text" id="f_department" placeholder="เช่น หอผู้ป่วยชาย, ฝ่ายเภสัชกรรม" class="w-full border rounded-lg p-2 text-sm">
+                    </div>
+                </div>
+
                 <div class="mb-4">
                     <label class="block text-sm font-medium mb-1">จำนวนเงิน (บาท)</label>
-                    <input type="number" step="0.01" id="f_amount" required class="w-full border rounded-lg p-2.5 focus:ring-2 outline-none text-lg font-semibold text-blue-600">
+                    <input type="number" step="0.01" id="f_amount" required class="w-full border rounded-lg p-2 focus:ring-2 outline-none text-lg font-semibold text-blue-600">
                 </div>
-                <div class="mb-4"><label class="block text-sm font-medium mb-1">หมายเหตุ</label><input type="text" id="f_note" placeholder="รายละเอียดเพิ่มเติม..." class="w-full border rounded-lg p-2.5 focus:ring-2 outline-none"></div>
+                <div class="mb-4"><label class="block text-sm font-medium mb-1">หมายเหตุ</label><input type="text" id="f_note" class="w-full border rounded-lg p-2 focus:ring-2 outline-none"></div>
                 
                 <div class="mb-6 p-4 bg-slate-50 border rounded-lg">
                     <label class="block text-sm font-semibold mb-2">หลักฐานอ้างอิง</label>
                     <select id="f_eviType" onchange="toggleEvi()" class="w-full border rounded-lg p-2 mb-3"><option value="file">อัปโหลดไฟล์ภาพ/PDF (ไม่เกิน 5MB)</option><option value="link">วางลิงก์เอกสาร Google Drive</option></select>
-                    <input type="file" id="f_file" accept="image/*,.pdf" class="w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:bg-blue-100 file:text-blue-700 hover:file:bg-blue-200">
-                    <input type="url" id="f_link" placeholder="https://..." class="w-full border rounded-lg p-2.5 hidden">
-                    <p class="text-xs text-red-500 mt-2 italic">*หากเลือกแนบไฟล์ การบันทึกอาจใช้เวลา 5-10 วินาที</p>
+                    <input type="file" id="f_file" accept="image/*,.pdf" class="w-full text-sm">
+                    <input type="url" id="f_link" placeholder="https://..." class="w-full border rounded-lg p-2 hidden">
                 </div>
 
-                <button type="submit" id="btnSave" class="w-full bg-blue-600 text-white py-3 rounded-lg font-bold text-lg hover:bg-blue-700 transition shadow-lg">บันทึกข้อมูล</button>
+                <button type="submit" id="btnSave" class="w-full bg-blue-600 text-white py-3 rounded-lg font-bold text-lg hover:bg-blue-700 transition">บันทึกข้อมูล</button>
             </form>
         </div>
     </div>
