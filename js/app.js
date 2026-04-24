@@ -1,15 +1,31 @@
+// --- Global State ---
 let currentUser = null;
 let currentModule = 'Overview'; 
 let rawData = [];
-let charts = { main: null, incPie: null, expPie: null };
+let charts = { main: null, incPie: null, expPie: null, insInc: null, insExp: null, supDept: null, supObj: null };
+
+// Tomselect instances
+let tomDept = null, tomObj = null;
 
 document.addEventListener('DOMContentLoaded', () => {
     const sessionStr = sessionStorage.getItem('user');
     if (!sessionStr) { window.location.href = 'index.html'; return; }
-    
     currentUser = JSON.parse(sessionStr);
+    
     document.getElementById('userDisplay').innerHTML = `<b>${currentUser.username}</b><br>สิทธิ์: ${currentUser.role}`;
 
+    if (typeof API_URL === 'undefined' || !API_URL.startsWith('http')) {
+        Swal.fire('ข้อผิดพลาดรุนแรง', 'หา API_URL ไม่พบ กรุณาตรวจสอบไฟล์ js/config.js', 'error');
+        return;
+    }
+
+    // เปิดการมองเห็นเมนูเฉพาะ Admin_Fund และ God_Admin
+    if(currentUser.role === 'God_Admin' || currentUser.role === 'Admin_Fund') {
+        document.querySelectorAll('.admin-fund-only').forEach(el => el.classList.remove('hidden'));
+        initTomSelects(); // เตรียม Dropdown
+    }
+
+    // เตรียมปีใน Modal รีพอร์ต
     const yr = new Date().getFullYear();
     const ySel = document.getElementById('r_year');
     for(let i = yr-2; i <= yr+2; i++) ySel.options.add(new Option(i+543, i));
@@ -18,19 +34,28 @@ document.addEventListener('DOMContentLoaded', () => {
     switchModule('Overview');
 });
 
+// --- UI Controls ---
 function openMenu() { document.getElementById('mobileMenu').classList.remove('hidden'); }
 function closeMenu() { document.getElementById('mobileMenu').classList.add('hidden'); }
 
 function switchModule(mod) {
     currentModule = mod;
-    ['Overview', 'Fund', 'Cafe', 'Shop'].forEach(btn => {
+    ['Overview', 'Insights', 'Fund', 'Cafe', 'Shop', 'Support'].forEach(btn => {
         const el = document.getElementById(`nav-${btn}`);
+        const mel = document.getElementById(`m-nav-${btn}`);
         if(el) el.className = (btn === mod) ? "w-full flex items-center p-3 rounded-lg bg-blue-600 shadow text-white" : "w-full flex items-center p-3 rounded-lg hover:bg-slate-700 text-white";
+        if(mel) mel.className = (btn === mod) ? "w-full text-left p-4 bg-blue-600 rounded-lg text-white" : "w-full text-left p-4 bg-slate-700 rounded-lg text-slate-300";
     });
     
-    const titles = { Overview: 'ภาพรวมระบบ', Fund: 'บัญชีกองทุนฯ', Cafe: 'ร้านกาแฟสุขใจ', Shop: 'ร้านผลิตภัณฑ์ฯ' };
+    const titles = { Overview: 'ภาพรวมระบบ', Insights: 'รายงานเชิงลึก (Insights)', Fund: 'บัญชีกองทุนฯ', Cafe: 'ร้านกาแฟสุขใจ', Shop: 'ร้านผลิตภัณฑ์ฯ', Support: 'ทะเบียนรายการสนับสนุน' };
     document.getElementById('moduleTitle').innerText = titles[mod];
     document.getElementById('mobileTitle').innerText = titles[mod];
+
+    // Reset Views
+    ['viewOverview', 'viewModule', 'viewInsights', 'viewSupport'].forEach(id => document.getElementById(id).classList.add('hidden'));
+    document.getElementById('btnReport').classList.add('hidden');
+    document.getElementById('btnAdd').classList.add('hidden');
+    document.getElementById('btnAddSupport').classList.add('hidden');
 
     if(charts.main) { charts.main.destroy(); charts.main = null; }
     if(charts.incPie) { charts.incPie.destroy(); charts.incPie = null; }
@@ -38,23 +63,176 @@ function switchModule(mod) {
 
     if (mod === 'Overview') {
         document.getElementById('viewOverview').classList.remove('hidden');
-        document.getElementById('viewModule').classList.add('hidden');
-        document.getElementById('btnReport').classList.add('hidden');
-        document.getElementById('btnAdd').classList.add('hidden');
         fetchOverview();
+    } else if (mod === 'Insights') {
+        document.getElementById('viewInsights').classList.remove('hidden');
+        fetchInsights();
+    } else if (mod === 'Support') {
+        document.getElementById('viewSupport').classList.remove('hidden');
+        if (currentUser.role === 'God_Admin' || currentUser.role === 'Admin_Fund') document.getElementById('btnAddSupport').classList.remove('hidden');
+        fetchSupportData();
     } else {
-        document.getElementById('viewOverview').classList.add('hidden');
         document.getElementById('viewModule').classList.remove('hidden');
         document.getElementById('btnReport').classList.remove('hidden');
-        
-        const btnA = document.getElementById('btnAdd');
-        if (currentUser.role === 'God_Admin' || currentUser.role === `Admin_${mod}`) btnA.classList.remove('hidden');
-        else btnA.classList.add('hidden');
-        
+        if (currentUser.role === 'God_Admin' || currentUser.role === `Admin_${mod}`) document.getElementById('btnAdd').classList.remove('hidden');
         fetchData();
     }
 }
 
+function logout() { sessionStorage.removeItem('user'); window.location.href = 'index.html'; }
+
+// =====================================
+// โมดูล: ทะเบียนรายการสนับสนุน
+// =====================================
+async function initTomSelects() {
+    tomDept = new TomSelect("#s_department",{ create: true, sortField: {field: "text",direction: "asc"} });
+    tomObj = new TomSelect("#s_objective",{ create: true, sortField: {field: "text",direction: "asc"} });
+    try {
+        const res = await (await fetch(API_URL, { method: 'POST', body: JSON.stringify({ action: 'get_support_meta' }) })).json();
+        if(res.status === 'success') {
+            res.data.departments.forEach(d => tomDept.addOption({value: d, text: d}));
+            res.data.objectives.forEach(o => tomObj.addOption({value: o, text: o}));
+        }
+    } catch(e) {}
+}
+
+async function fetchSupportData() {
+    const tb = document.getElementById('supTableBody');
+    tb.innerHTML = '<tr><td colspan="6" class="p-10 text-center"><i class="fa-solid fa-spinner fa-spin text-amber-500 text-3xl mb-3"></i></td></tr>';
+    try {
+        const res = await (await fetch(API_URL, { method: 'POST', body: JSON.stringify({ action: 'get_support' }) })).json();
+        if (res.status === 'success') { 
+            let data = res.data.sort((a,b) => new Date(b.date) - new Date(a.date));
+            tb.innerHTML = '';
+            let deptCount = {}, objCount = {};
+
+            if(data.length === 0) tb.innerHTML = '<tr><td colspan="6" class="p-6 text-center">ยังไม่มีข้อมูล</td></tr>';
+
+            data.forEach(r => {
+                deptCount[r.department] = (deptCount[r.department]||0) + r.amount;
+                objCount[r.objective] = (objCount[r.objective]||0) + r.amount;
+
+                let act = '-';
+                if (currentUser.role === 'God_Admin' || currentUser.role === 'Admin_Fund') {
+                    act = `<button onclick="editSup('${r.id}')" class="text-amber-500 mx-1"><i class="fa-solid fa-edit"></i></button><button onclick="delSup('${r.id}')" class="text-red-500 mx-1"><i class="fa-solid fa-trash"></i></button>`;
+                }
+
+                tb.innerHTML += `<tr class="border-b">
+                    <td class="p-3">${r.date}</td>
+                    <td class="p-3 font-semibold text-slate-700">${r.department}</td>
+                    <td class="p-3"><span class="bg-amber-100 text-amber-800 px-2 py-1 rounded text-xs">${r.objective}</span></td>
+                    <td class="p-3 text-sm">${r.item}</td>
+                    <td class="p-3 text-right font-bold text-amber-600">฿${r.amount.toLocaleString('th-TH',{minimumFractionDigits:2})}</td>
+                    <td class="p-3 text-center">${act}</td>
+                </tr>`;
+            });
+            renderSupCharts(deptCount, objCount);
+            rawData = data; 
+        }
+    } catch(e) {}
+}
+
+function renderSupCharts(dC, oC) {
+    const opt = { responsive: true, maintainAspectRatio: false, plugins:{legend:{position:'right'}} };
+    if(charts.supDept) charts.supDept.destroy(); charts.supDept = new Chart(document.getElementById('supDeptChart').getContext('2d'), { type:'doughnut', data:{labels:Object.keys(dC), datasets:[{data:Object.values(dC), backgroundColor:['#3b82f6','#f59e0b','#10b981','#8b5cf6','#ef4444']}]}, options:opt});
+    if(charts.supObj) charts.supObj.destroy(); charts.supObj = new Chart(document.getElementById('supObjChart').getContext('2d'), { type:'doughnut', data:{labels:Object.keys(oC), datasets:[{data:Object.values(oC), backgroundColor:['#f59e0b','#10b981','#3b82f6','#ef4444','#8b5cf6']}]}, options:opt});
+}
+
+function openSupportModal() { document.getElementById('supModal').classList.remove('hidden'); }
+function closeSupportModal() { document.getElementById('supModal').classList.add('hidden'); document.getElementById('supForm').reset(); document.getElementById('s_id').value=''; tomDept.clear(); tomObj.clear(); }
+
+async function submitSupportForm(e) {
+    e.preventDefault(); const btn = document.getElementById('btnSaveSup'); btn.innerText = 'กำลังบันทึก...'; btn.disabled = true;
+    let pay = {
+        rowIndex: document.getElementById('s_id').value, date: document.getElementById('s_date').value,
+        department: document.getElementById('s_department').value, objective: document.getElementById('s_objective').value,
+        item: document.getElementById('s_item').value, amount: document.getElementById('s_amount').value,
+        username: currentUser.username
+    };
+    try {
+        const res = await (await fetch(API_URL, { method: 'POST', body: JSON.stringify({ action:'save_support', payload:pay }) })).json();
+        if(res.status==='success') { Swal.fire('สำเร็จ', res.message, 'success'); closeSupportModal(); fetchSupportData(); }
+    } catch(e) { Swal.fire('Error', 'บันทึกไม่สำเร็จ', 'error'); } finally { btn.innerText = 'บันทึกข้อมูล'; btn.disabled = false; }
+}
+
+function editSup(id) {
+    const r = rawData.find(x => x.id === id); if(!r) return;
+    document.getElementById('s_id').value = r.id; document.getElementById('s_date').value = r.date;
+    tomDept.addOption({value: r.department, text: r.department}); tomDept.setValue(r.department);
+    tomObj.addOption({value: r.objective, text: r.objective}); tomObj.setValue(r.objective);
+    document.getElementById('s_item').value = r.item; document.getElementById('s_amount').value = r.amount;
+    openSupportModal();
+}
+function delSup(id) {
+    Swal.fire({title:'ลบรายการ?', icon:'warning', showCancelButton:true}).then(async (r) => {
+        if(r.isConfirmed) { const res = await (await fetch(API_URL, { method: 'POST', body: JSON.stringify({ action: 'delete_support', payload: { rowIndex: id } }) })).json(); if(res.status==='success') fetchSupportData(); }
+    });
+}
+
+// =====================================
+// โมดูล: รายงานเชิงลึก (Insights)
+// =====================================
+async function fetchInsights() {
+    Swal.showLoading();
+    try {
+        const res = await (await fetch(API_URL, { method: 'POST', body: JSON.stringify({ action: 'get_insights' }) })).json();
+        Swal.close();
+        if(res.status === 'success') {
+            const start = document.getElementById('in_start').value;
+            const end = document.getElementById('in_end').value;
+            
+            const filterByDate = (arr) => {
+                if(!start && !end) return arr;
+                return arr.filter(r => {
+                    let ym = r.date.substring(0,7); 
+                    if(start && ym < start) return false;
+                    if(end && ym > end) return false;
+                    return true;
+                });
+            };
+
+            let fData = filterByDate(res.data.fund);
+            let cData = filterByDate(res.data.cafe);
+            let sData = filterByDate(res.data.shop);
+
+            let incCash = 0, incTransFund = 0, incTransCafe = 0, incTransShop = 0;
+            fData.forEach(r => { if(r.type==='รายรับ' && r.method==='เงินสด') incCash += r.amount; if(r.type==='รายรับ' && r.method==='เงินโอน') incTransFund += r.amount; });
+            cData.forEach(r => { if(r.type==='รายรับ' && r.method==='เงินสด') incCash += r.amount; if(r.type==='รายรับ' && r.method==='เงินโอน') incTransCafe += r.amount; });
+            sData.forEach(r => { if(r.type==='รายรับ' && r.method==='เงินสด') incCash += r.amount; if(r.type==='รายรับ' && r.method==='เงินโอน') incTransShop += r.amount; });
+
+            let expSalary = 0, expGoods = 0, expOther = 0;
+            const calcExp = (r) => {
+                if(r.type!=='รายจ่าย') return;
+                if(r.item==='เงินเดือน') expSalary += r.amount;
+                else if(r.item.includes('ซื้อของ')) expGoods += r.amount;
+                else expOther += r.amount;
+            };
+            fData.forEach(calcExp); cData.forEach(calcExp); sData.forEach(calcExp);
+
+            if(charts.insInc) charts.insInc.destroy();
+            charts.insInc = new Chart(document.getElementById('insightIncomeChart').getContext('2d'), {
+                type: 'bar',
+                data: {
+                    labels: ['เงินสด (รวมทุกหน่วย)', 'เงินโอนเข้ากองทุน (โดยตรง)', 'เงินโอน (ผ่านร้านกาแฟ)', 'เงินโอน (ผ่านร้านผลิตภัณฑ์)'],
+                    datasets: [{ label: 'มูลค่า (บาท)', data: [incCash, incTransFund, incTransCafe, incTransShop], backgroundColor: ['#10b981', '#3b82f6', '#f59e0b', '#8b5cf6'] }]
+                }, options: { responsive: true, maintainAspectRatio: false }
+            });
+
+            if(charts.insExp) charts.insExp.destroy();
+            charts.insExp = new Chart(document.getElementById('insightExpenseChart').getContext('2d'), {
+                type: 'bar',
+                data: {
+                    labels: ['หมวดค่าจ้าง/เงินเดือน', 'หมวดค่าวัสดุ/สินค้า', 'ค่าใช้จ่ายและถอนเงินอื่นๆ'],
+                    datasets: [{ label: 'มูลค่า (บาท)', data: [expSalary, expGoods, expOther], backgroundColor: ['#ef4444', '#f97316', '#64748b'] }]
+                }, options: { responsive: true, maintainAspectRatio: false }
+            });
+        }
+    } catch(e) { Swal.fire('Error', 'ไม่สามารถสร้างรายงานเชิงลึกได้', 'error'); }
+}
+
+// =====================================
+// โมดูล: ภาพรวม (Overview)
+// =====================================
 async function fetchOverview() {
     document.getElementById('ov_fund').innerText = 'กำลังโหลด...';
     try {
@@ -67,6 +245,9 @@ async function fetchOverview() {
     } catch (e) { console.error(e); }
 }
 
+// =====================================
+// โมดูล: บัญชี (Fund, Cafe, Shop)
+// =====================================
 async function fetchData() {
     const tb = document.getElementById('tableBody');
     tb.innerHTML = '<tr><td colspan="7" class="p-10 text-center text-blue-500"><i class="fa-solid fa-spinner fa-spin text-3xl mb-3"></i><br>กำลังดึงข้อมูล...</td></tr>';
@@ -90,7 +271,6 @@ function renderData() {
         updateCards(0, 0, 0, 0); renderCharts(cMonth, pInc, pExp); return;
     }
 
-    // Sort วันที่ให้เรียงจากเก่าไปใหม่ เพื่อป้องกันยอดยกมาเพี้ยน
     let sortedData = [...rawData].sort((a,b) => new Date(a.date) - new Date(b.date));
 
     sortedData.forEach(r => {
@@ -111,11 +291,7 @@ function renderData() {
                 opInc += amt; 
                 cMonth[sKey].inc += amt; 
                 pInc[itemStr] = (pInc[itemStr]||0)+amt; 
-                
-                // หักเงินโอนออกจากกระแสเงินสดของร้าน
-                if (currentModule !== 'Fund' && r.method === 'เงินโอน') {
-                    transferInc += amt;
-                }
+                if (currentModule !== 'Fund' && r.method === 'เงินโอน') transferInc += amt;
             }
         } else if (r.type === 'รายจ่าย') {
             if (['คืนเงินกองทุน', 'ถอนเงิน'].includes(itemStr)) { 
@@ -151,7 +327,7 @@ function renderData() {
 
     let profit = opInc - opExp; 
     let cashOnHand = (opInc + nonOpInc + initBF) - (opExp + nonOpExp);
-    if (currentModule !== 'Fund') { cashOnHand -= transferInc; } // หักเงินโอน
+    if (currentModule !== 'Fund') { cashOnHand -= transferInc; } 
 
     document.getElementById('lbl_inc').innerText = currentModule === 'Fund' ? 'รายรับ (เงินโอน/เงินสด)' : 'รายได้ดำเนินงาน (ยอดขาย)';
     updateCards(opInc, opExp, profit, cashOnHand);
@@ -176,7 +352,6 @@ function renderCharts(m, pI, pE) {
     if(charts.expPie) charts.expPie.destroy(); charts.expPie = new Chart(document.getElementById('expPieChart').getContext('2d'), { type:'doughnut', data:{labels:Object.keys(pE), datasets:[{data:Object.values(pE), backgroundColor:['#ef4444','#f97316','#8b5cf6']}]}, options:opt});
 }
 
-// --- Forms ---
 function updateItemOptions() {
     const t = document.getElementById('f_type').value; const el = document.getElementById('f_item'); el.innerHTML = '';
     let opts = currentModule === 'Fund' ? (t==='รายรับ'?['ยอดยกมา','เงินโอน (ปรับสมุด)','เงินสด','อื่นๆ']:['ถอนเงิน','อื่นๆ']) : (t==='รายรับ'?['ยอดยกมา','ยอดขาย','เบิกเงินกองทุน','อื่นๆ']:['เงินเดือน','ซื้อของ','คืนเงินกองทุน','อื่นๆ']);
@@ -199,9 +374,8 @@ function editTx(id) { const r = rawData.find(x => x.id === id); if(!r) return; d
 function delTx(id) { Swal.fire({title:'ลบรายการ?', icon:'warning', showCancelButton:true}).then(async (r) => { if(r.isConfirmed) { const res = await (await fetch(API_URL, { method: 'POST', body: JSON.stringify({ action: 'delete_tx', payload: { module: currentModule, rowIndex: id } }) })).json(); if(res.status==='success') fetchData(); } }); }
 function openModal() { document.getElementById('txModal').classList.remove('hidden'); updateItemOptions(); }
 function closeModal() { document.getElementById('txModal').classList.add('hidden'); document.getElementById('txForm').reset(); document.getElementById('f_id').value=''; }
-function logout() { sessionStorage.removeItem('user'); window.location.href = 'index.html'; }
 
-// --- Report Generation ---
+// --- การสร้าง Report ---
 function openReportModal() { document.getElementById('reportModal').classList.remove('hidden'); }
 function closeReportPreview() { document.getElementById('reportPreviewContainer').classList.add('hidden'); }
 
@@ -219,29 +393,22 @@ function generateReport() {
     sortedData.forEach(r => {
         let d = new Date(r.date), amt = Number(r.amount)||0;
         let itemStr = String(r.item).trim();
-        
         let actualAmt = amt;
         
-        // 1. ดักจับ 'ยอดยกมา' ให้คิดแค่ก้อนแรกสุดในระบบก้อนเดียว
         if (r.type === 'รายรับ' && itemStr === 'ยอดยกมา') {
-            if (!hasFoundInitialBF) { hasFoundInitialBF = true; } 
-            else { actualAmt = 0; } // ดักจับยอดยกมาซ้ำซ้อน ไม่นำมาคำนวณ
+            if (!hasFoundInitialBF) { hasFoundInitialBF = true; } else { actualAmt = 0; }
         }
-
-        // 2. ดักจับ 'เงินโอน' (สำหรับร้านกาแฟ/ผลิตภัณฑ์ ห้ามนำเงินโอนไปรวมเป็นกระแสเงินสดสะสมในอดีต)
         if (r.type === 'รายรับ' && currentModule !== 'Fund' && r.method === 'เงินโอน') {
             actualAmt = 0; 
         }
 
-        // แยกข้อมูลเดือนก่อนหน้า (ไปทบเป็นยอดยกมา) กับข้อมูลเดือนปัจจุบัน
         if(d.getFullYear() < y || (d.getFullYear() === y && d.getMonth()+1 < m)) {
             if(r.type === 'รายรับ') runningBalance += actualAmt; else runningBalance -= actualAmt;
         } else if(d.getFullYear() === y && d.getMonth()+1 === m) {
-            // ยอดยกมาไม่ต้องโชว์ในตารางรายละเอียดรายงาน 
             if (!(r.type === 'รายรับ' && itemStr === 'ยอดยกมา')) {
                 monthData.push(r);
             } else if (actualAmt > 0) {
-                runningBalance += actualAmt; // ถ้ายอดยกมาก้อนแรกเกิดในเดือนนี้พอดี ให้ไปบวกเป็นฐานเงินสด
+                runningBalance += actualAmt; 
             }
         }
     });
@@ -249,7 +416,7 @@ function generateReport() {
     let bf = runningBalance;
     const f = n => (n||0).toLocaleString('th-TH', {minimumFractionDigits:2});
     
-    if(currentModule === 'Fund') { // Bank Statement Format
+    if(currentModule === 'Fund') { 
         let bal = bf;
         let trs = monthData.map(r => {
             if(r.type === 'รายรับ') bal += Number(r.amount); else bal -= Number(r.amount);
@@ -268,7 +435,7 @@ function generateReport() {
                 </tbody>
             </table>
         </div>`;
-    } else { // Summary Format
+    } else { 
         let sCash=0, sTrans=0, sFund=0, eGoods=0, eSal=0, eFund=0;
         monthData.forEach(r => {
             let amt = Number(r.amount)||0;
