@@ -9,14 +9,13 @@ function toggleForm(showId) {
     document.getElementById(showId).classList.remove('hidden-form');
 }
 
-// ฟังก์ชันเข้าใช้งานแบบ Guest (สร้าง Session ปลอม)
+// ฟังก์ชันเข้าใช้งานแบบ Guest (สร้าง Session จำลอง)
 function loginAsGuest() {
     const guestUser = { 
         username: 'บุคคลทั่วไป (Guest)', 
         role: 'Guest', 
         email: '-' 
     };
-    // บันทึก Session แล้วเด้งไปหน้า Dashboard เลย โดยไม่ต้องเช็คฐานข้อมูล
     sessionStorage.setItem('user', JSON.stringify(guestUser));
     window.location.href = 'dashboard.html';
 }
