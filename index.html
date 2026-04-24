@@ -21,13 +21,12 @@
             <form onsubmit="doAuth(event, 'login')">
                 <input type="text" id="l_user" placeholder="Username" required class="w-full mb-4 px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition">
                 <input type="password" id="l_pass" placeholder="Password" required class="w-full mb-2 px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition">
+                <div class="text-right mb-4"><a href="#" onclick="toggleForm('forgotForm')" class="text-sm text-blue-600 hover:underline">ลืมรหัสผ่าน?</a></div>
                 
-                <button type="submit" class="w-full bg-blue-600 text-white font-bold py-3 rounded-lg hover:bg-blue-700 transition shadow mt-4">เข้าสู่ระบบ (สำหรับเจ้าหน้าที่)</button>
+                <button type="submit" class="w-full bg-blue-600 text-white font-bold py-3 rounded-lg hover:bg-blue-700 transition shadow mt-2">เข้าสู่ระบบ (สำหรับเจ้าหน้าที่)</button>
             </form>
             
-            <button type="button" onclick="loginAsGuest()" class="w-full bg-slate-100 text-slate-700 font-bold py-3 rounded-lg hover:bg-slate-200 border border-slate-300 transition shadow-sm mt-3">
-    เข้าชมแบบบุคคลทั่วไป (Guest)
-</button>
+            <button type="button" onclick="loginAsGuest()" class="w-full bg-slate-100 text-slate-700 font-bold py-3 rounded-lg hover:bg-slate-200 border border-slate-300 transition shadow-sm mt-3">เข้าชมแบบบุคคลทั่วไป (Guest)</button>
 
             <p class="text-center text-sm text-gray-600 mt-5">ยังไม่มีบัญชี? <a href="#" onclick="toggleForm('regForm')" class="text-blue-600 font-semibold hover:underline">สมัครสมาชิก</a></p>
         </div>
