@@ -4,6 +4,9 @@ let currentModule = 'Overview';
 let rawData = [];
 let charts = { main: null, incPie: null, expPie: null, insInc: null, insExp: null, supDept: null, supObj: null };
 
+// Variables for Table Sorting & Filtering
+let sortDesc = true; // true = ใหม่ไปเก่า, false = เก่าไปใหม่
+
 // Tomselect instances
 let tomDept = null, tomObj = null;
 
@@ -19,13 +22,11 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
     }
 
-    // เปิดการมองเห็นเมนูเฉพาะ Admin_Fund และ God_Admin
     if(currentUser.role === 'God_Admin' || currentUser.role === 'Admin_Fund') {
         document.querySelectorAll('.admin-fund-only').forEach(el => el.classList.remove('hidden'));
-        initTomSelects(); // เตรียม Dropdown
+        initTomSelects(); 
     }
 
-    // เตรียมปีใน Modal รีพอร์ต
     const yr = new Date().getFullYear();
     const ySel = document.getElementById('r_year');
     for(let i = yr-2; i <= yr+2; i++) ySel.options.add(new Option(i+543, i));
@@ -34,7 +35,6 @@ document.addEventListener('DOMContentLoaded', () => {
     switchModule('Overview');
 });
 
-// --- UI Controls ---
 function openMenu() { document.getElementById('mobileMenu').classList.remove('hidden'); }
 function closeMenu() { document.getElementById('mobileMenu').classList.add('hidden'); }
 
@@ -51,7 +51,6 @@ function switchModule(mod) {
     document.getElementById('moduleTitle').innerText = titles[mod];
     document.getElementById('mobileTitle').innerText = titles[mod];
 
-    // Reset Views
     ['viewOverview', 'viewModule', 'viewInsights', 'viewSupport'].forEach(id => document.getElementById(id).classList.add('hidden'));
     document.getElementById('btnReport').classList.add('hidden');
     document.getElementById('btnAdd').classList.add('hidden');
@@ -60,6 +59,10 @@ function switchModule(mod) {
     if(charts.main) { charts.main.destroy(); charts.main = null; }
     if(charts.incPie) { charts.incPie.destroy(); charts.incPie = null; }
     if(charts.expPie) { charts.expPie.destroy(); charts.expPie = null; }
+
+    // Reset Table Filters when switching modules
+    sortDesc = true;
+    if(document.getElementById('filterItem')) document.getElementById('filterItem').value = "";
 
     if (mod === 'Overview') {
         document.getElementById('viewOverview').classList.remove('hidden');
@@ -143,12 +146,7 @@ function closeSupportModal() { document.getElementById('supModal').classList.add
 
 async function submitSupportForm(e) {
     e.preventDefault(); const btn = document.getElementById('btnSaveSup'); btn.innerText = 'กำลังบันทึก...'; btn.disabled = true;
-    let pay = {
-        rowIndex: document.getElementById('s_id').value, date: document.getElementById('s_date').value,
-        department: document.getElementById('s_department').value, objective: document.getElementById('s_objective').value,
-        item: document.getElementById('s_item').value, amount: document.getElementById('s_amount').value,
-        username: currentUser.username
-    };
+    let pay = { rowIndex: document.getElementById('s_id').value, date: document.getElementById('s_date').value, department: document.getElementById('s_department').value, objective: document.getElementById('s_objective').value, item: document.getElementById('s_item').value, amount: document.getElementById('s_amount').value, username: currentUser.username };
     try {
         const res = await (await fetch(API_URL, { method: 'POST', body: JSON.stringify({ action:'save_support', payload:pay }) })).json();
         if(res.status==='success') { Swal.fire('สำเร็จ', res.message, 'success'); closeSupportModal(); fetchSupportData(); }
@@ -191,9 +189,7 @@ async function fetchInsights() {
                 });
             };
 
-            let fData = filterByDate(res.data.fund);
-            let cData = filterByDate(res.data.cafe);
-            let sData = filterByDate(res.data.shop);
+            let fData = filterByDate(res.data.fund); let cData = filterByDate(res.data.cafe); let sData = filterByDate(res.data.shop);
 
             let incCash = 0, incTransFund = 0, incTransCafe = 0, incTransShop = 0;
             fData.forEach(r => { if(r.type==='รายรับ' && r.method==='เงินสด') incCash += r.amount; if(r.type==='รายรับ' && r.method==='เงินโอน') incTransFund += r.amount; });
@@ -211,20 +207,12 @@ async function fetchInsights() {
 
             if(charts.insInc) charts.insInc.destroy();
             charts.insInc = new Chart(document.getElementById('insightIncomeChart').getContext('2d'), {
-                type: 'bar',
-                data: {
-                    labels: ['เงินสด (รวมทุกหน่วย)', 'เงินโอนเข้ากองทุน (โดยตรง)', 'เงินโอน (ผ่านร้านกาแฟ)', 'เงินโอน (ผ่านร้านผลิตภัณฑ์)'],
-                    datasets: [{ label: 'มูลค่า (บาท)', data: [incCash, incTransFund, incTransCafe, incTransShop], backgroundColor: ['#10b981', '#3b82f6', '#f59e0b', '#8b5cf6'] }]
-                }, options: { responsive: true, maintainAspectRatio: false }
+                type: 'bar', data: { labels: ['เงินสด (รวมทุกหน่วย)', 'เงินโอนเข้ากองทุน (โดยตรง)', 'เงินโอน (ผ่านร้านกาแฟ)', 'เงินโอน (ผ่านร้านผลิตภัณฑ์)'], datasets: [{ label: 'มูลค่า (บาท)', data: [incCash, incTransFund, incTransCafe, incTransShop], backgroundColor: ['#10b981', '#3b82f6', '#f59e0b', '#8b5cf6'] }] }, options: { responsive: true, maintainAspectRatio: false }
             });
 
             if(charts.insExp) charts.insExp.destroy();
             charts.insExp = new Chart(document.getElementById('insightExpenseChart').getContext('2d'), {
-                type: 'bar',
-                data: {
-                    labels: ['หมวดค่าจ้าง/เงินเดือน', 'หมวดค่าวัสดุ/สินค้า', 'ค่าใช้จ่ายและถอนเงินอื่นๆ'],
-                    datasets: [{ label: 'มูลค่า (บาท)', data: [expSalary, expGoods, expOther], backgroundColor: ['#ef4444', '#f97316', '#64748b'] }]
-                }, options: { responsive: true, maintainAspectRatio: false }
+                type: 'bar', data: { labels: ['หมวดค่าจ้าง/เงินเดือน', 'หมวดค่าวัสดุ/สินค้า', 'ค่าใช้จ่ายและถอนเงินอื่นๆ'], datasets: [{ label: 'มูลค่า (บาท)', data: [expSalary, expGoods, expOther], backgroundColor: ['#ef4444', '#f97316', '#64748b'] }] }, options: { responsive: true, maintainAspectRatio: false }
             });
         }
     } catch(e) { Swal.fire('Error', 'ไม่สามารถสร้างรายงานเชิงลึกได้', 'error'); }
@@ -253,27 +241,26 @@ async function fetchData() {
     tb.innerHTML = '<tr><td colspan="7" class="p-10 text-center text-blue-500"><i class="fa-solid fa-spinner fa-spin text-3xl mb-3"></i><br>กำลังดึงข้อมูล...</td></tr>';
     try {
         const res = await (await fetch(API_URL, { method: 'POST', body: JSON.stringify({ action: 'get_data', payload: { module: currentModule } }) })).json();
-        if (res.status === 'success') { rawData = res.data; renderData(); }
+        if (res.status === 'success') { 
+            rawData = res.data; 
+            processDashboardCards(); // ประมวลผลและวาดการ์ด/กราฟจากข้อมูลทั้งหมด
+            populateFilterDropdown(); // สร้างตัวเลือกใน Dropdown
+            renderTableOnly(); // วาดเฉพาะตารางตาม Filter/Sort
+        }
     } catch (err) { tb.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-red-500">การเชื่อมต่อขัดข้อง</td></tr>`; }
 }
 
-function renderData() {
-    const tb = document.getElementById('tableBody'); tb.innerHTML = '';
-    
+function processDashboardCards() {
     let opInc=0, opExp=0, nonOpInc=0, nonOpExp=0;
     let transferInc = 0; 
     let initBF = 0; 
     let bfFound = false;
     let cMonth={}, pInc={}, pExp={};
 
-    if (rawData.length === 0) {
-        tb.innerHTML = '<tr><td colspan="7" class="p-6 text-center text-slate-500">ยังไม่มีรายการบัญชี</td></tr>';
-        updateCards(0, 0, 0, 0); renderCharts(cMonth, pInc, pExp); return;
-    }
+    // Sort ภายในฟังก์ชันนี้เพื่อหา BF ก้อนแรกสุดให้ถูกต้อง (เก่า -> ใหม่)
+    let tempSorted = [...rawData].sort((a,b) => new Date(a.date) - new Date(b.date));
 
-    let sortedData = [...rawData].sort((a,b) => new Date(a.date) - new Date(b.date));
-
-    sortedData.forEach(r => {
+    tempSorted.forEach(r => {
         let amt = Number(r.amount) || 0;
         let d = new Date(r.date);
         let itemStr = String(r.item).trim();
@@ -302,27 +289,6 @@ function renderData() {
                 pExp[itemStr] = (pExp[itemStr]||0)+amt; 
             }
         }
-
-        let act = '-';
-        if (currentUser.role === 'God_Admin' || currentUser.role === `Admin_${currentModule}`) {
-            act = `<button onclick="editTx('${r.id}')" class="text-amber-500 mx-1"><i class="fa-solid fa-edit"></i></button><button onclick="delTx('${r.id}')" class="text-red-500 mx-1"><i class="fa-solid fa-trash"></i></button>`;
-        }
-        let evi = (r.evidence && r.evidence.length > 5) ? `<a href="${r.evidence}" target="_blank" class="text-blue-600 underline text-xs">หลักฐาน</a>` : '-';
-        let noteHtml = (currentModule === 'Fund' && r.subItem) ? `<span class="text-blue-600">[${r.subItem}]</span> ${r.department||''} <br> ${r.note}` : r.note;
-        
-        let methodHtml = '-';
-        if(r.method === 'เงินสด') methodHtml = `<span class="bg-blue-50 text-blue-600 border border-blue-200 px-2 py-1 rounded text-xs font-semibold">เงินสด</span>`;
-        else if(r.method === 'เงินโอน') methodHtml = `<span class="bg-indigo-50 text-indigo-600 border border-indigo-200 px-2 py-1 rounded text-xs font-semibold">เงินโอน</span>`;
-
-        tb.innerHTML += `<tr class="border-b">
-            <td class="p-3">${r.date}</td>
-            <td class="p-3"><span class="px-2 py-1 text-xs rounded ${r.type==='รายรับ'?'bg-green-100 text-green-700':'bg-red-100 text-red-700'}">${r.type}</span></td>
-            <td class="p-3 font-medium">${r.item} <br><span class="text-xs text-slate-500 font-normal">${noteHtml}</span></td>
-            <td class="p-3 text-center">${methodHtml}</td>
-            <td class="p-3 text-right">฿${amt.toLocaleString('th-TH',{minimumFractionDigits:2})}</td>
-            <td class="p-3 text-center">${evi}</td>
-            <td class="p-3 text-center">${act}</td>
-        </tr>`;
     });
 
     let profit = opInc - opExp; 
@@ -330,15 +296,15 @@ function renderData() {
     if (currentModule !== 'Fund') { cashOnHand -= transferInc; } 
 
     document.getElementById('lbl_inc').innerText = currentModule === 'Fund' ? 'รายรับ (เงินโอน/เงินสด)' : 'รายได้ดำเนินงาน (ยอดขาย)';
-    updateCards(opInc, opExp, profit, cashOnHand);
-    renderCharts(cMonth, pInc, pExp);
-}
-
-function updateCards(inc, exp, pro, cash) {
+    
     const f = n => '฿' + (n||0).toLocaleString('th-TH', {minimumFractionDigits:2});
-    document.getElementById('c_income').innerText = f(inc); document.getElementById('c_expense').innerText = f(exp);
-    document.getElementById('c_profit').innerText = f(pro); document.getElementById('c_profit').className = pro>=0?"text-2xl font-bold text-blue-600 mt-1":"text-2xl font-bold text-red-600 mt-1";
-    document.getElementById('c_cash').innerText = f(cash);
+    document.getElementById('c_income').innerText = f(opInc); 
+    document.getElementById('c_expense').innerText = f(opExp);
+    document.getElementById('c_profit').innerText = f(profit); 
+    document.getElementById('c_profit').className = profit>=0?"text-2xl font-bold text-blue-600 mt-1":"text-2xl font-bold text-red-600 mt-1";
+    document.getElementById('c_cash').innerText = f(cashOnHand);
+
+    renderCharts(cMonth, pInc, pExp);
 }
 
 function renderCharts(m, pI, pE) {
@@ -352,6 +318,107 @@ function renderCharts(m, pI, pE) {
     if(charts.expPie) charts.expPie.destroy(); charts.expPie = new Chart(document.getElementById('expPieChart').getContext('2d'), { type:'doughnut', data:{labels:Object.keys(pE), datasets:[{data:Object.values(pE), backgroundColor:['#ef4444','#f97316','#8b5cf6']}]}, options:opt});
 }
 
+// --- Table Sorting, Filtering & Export ---
+function populateFilterDropdown() {
+    let filterEl = document.getElementById('filterItem');
+    if(!filterEl) return;
+    let currentVal = filterEl.value;
+    filterEl.innerHTML = '<option value="">-- ทุกรายการ --</option>';
+    
+    // ดึงรายชื่อ Item แบบไม่ซ้ำกัน
+    let uniqueItems = [...new Set(rawData.map(r => String(r.item).trim()))];
+    uniqueItems.sort().forEach(item => filterEl.add(new Option(item, item)));
+    
+    // เก็บค่าเดิมไว้ถ้ามี
+    if(uniqueItems.includes(currentVal)) filterEl.value = currentVal;
+}
+
+function applyFilter() { renderTableOnly(); }
+function toggleSort() { sortDesc = !sortDesc; renderTableOnly(); }
+
+function renderTableOnly() {
+    const tb = document.getElementById('tableBody');
+    tb.innerHTML = '';
+    
+    let filterVal = document.getElementById('filterItem') ? document.getElementById('filterItem').value : "";
+    let tableData = [...rawData];
+
+    // 1. Filter
+    if (filterVal !== "") {
+        tableData = tableData.filter(r => String(r.item).trim() === filterVal);
+    }
+
+    // 2. Sort
+    tableData.sort((a,b) => {
+        let da = new Date(a.date), db = new Date(b.date);
+        return sortDesc ? db - da : da - db; // sortDesc = true (ใหม่ไปเก่า), false (เก่าไปใหม่)
+    });
+
+    if (tableData.length === 0) {
+        tb.innerHTML = '<tr><td colspan="7" class="p-6 text-center text-slate-500">ไม่มีข้อมูลที่ตรงกับเงื่อนไข</td></tr>';
+        return;
+    }
+
+    tableData.forEach(r => {
+        let amt = Number(r.amount) || 0;
+        let act = '-';
+        if (currentUser.role === 'God_Admin' || currentUser.role === `Admin_${currentModule}`) {
+            act = `<button onclick="editTx('${r.id}')" class="text-amber-500 mx-1"><i class="fa-solid fa-edit"></i></button><button onclick="delTx('${r.id}')" class="text-red-500 mx-1"><i class="fa-solid fa-trash"></i></button>`;
+        }
+        let evi = (r.evidence && r.evidence.length > 5) ? `<a href="${r.evidence}" target="_blank" class="text-blue-600 underline text-xs">หลักฐาน</a>` : '-';
+        let noteHtml = (currentModule === 'Fund' && r.subItem) ? `<span class="text-blue-600">[${r.subItem}]</span> ${r.department||''} <br> ${r.note}` : r.note;
+        
+        let methodHtml = '-';
+        if(r.method === 'เงินสด') methodHtml = `<span class="bg-blue-50 text-blue-600 border border-blue-200 px-2 py-1 rounded text-xs font-semibold">เงินสด</span>`;
+        else if(r.method === 'เงินโอน') methodHtml = `<span class="bg-indigo-50 text-indigo-600 border border-indigo-200 px-2 py-1 rounded text-xs font-semibold">เงินโอน</span>`;
+
+        tb.innerHTML += `<tr class="border-b hover:bg-slate-50">
+            <td class="p-3">${r.date}</td>
+            <td class="p-3"><span class="px-2 py-1 text-xs rounded ${r.type==='รายรับ'?'bg-green-100 text-green-700':'bg-red-100 text-red-700'}">${r.type}</span></td>
+            <td class="p-3 font-medium">${r.item} <br><span class="text-xs text-slate-500 font-normal">${noteHtml}</span></td>
+            <td class="p-3 text-center">${methodHtml}</td>
+            <td class="p-3 text-right">฿${amt.toLocaleString('th-TH',{minimumFractionDigits:2})}</td>
+            <td class="p-3 text-center">${evi}</td>
+            <td class="p-3 text-center">${act}</td>
+        </tr>`;
+    });
+}
+
+function exportExcel() {
+    let filterVal = document.getElementById('filterItem') ? document.getElementById('filterItem').value : "";
+    let exportData = [...rawData];
+
+    if (filterVal !== "") {
+        exportData = exportData.filter(r => String(r.item).trim() === filterVal);
+    }
+    
+    exportData.sort((a,b) => {
+        let da = new Date(a.date), db = new Date(b.date);
+        return sortDesc ? db - da : da - db; 
+    });
+
+    // สร้าง JSON Array ที่คลีนๆ สำหรับส่งออก
+    let cleanArray = exportData.map(r => ({
+        "วันที่": r.date,
+        "ประเภท": r.type,
+        "รายการ": r.item,
+        "รายละเอียด/หมวดหมู่": (currentModule === 'Fund' && r.subItem) ? `[${r.subItem}] ${r.department||''} ${r.note}` : r.note,
+        "ช่องทาง": r.method,
+        "จำนวนเงิน": Number(r.amount)
+    }));
+
+    if(cleanArray.length === 0) {
+        Swal.fire('ไม่มีข้อมูล', 'ไม่พบข้อมูลที่ตรงกับเงื่อนไขสำหรับการส่งออก', 'info');
+        return;
+    }
+
+    let ws = XLSX.utils.json_to_sheet(cleanArray);
+    let wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Transactions");
+    XLSX.writeFile(wb, `รายการบัญชี_${currentModule}.xlsx`);
+}
+
+// --- Forms ---
 function updateItemOptions() {
     const t = document.getElementById('f_type').value; const el = document.getElementById('f_item'); el.innerHTML = '';
     let opts = currentModule === 'Fund' ? (t==='รายรับ'?['ยอดยกมา','เงินโอน (ปรับสมุด)','เงินสด','อื่นๆ']:['ถอนเงิน','อื่นๆ']) : (t==='รายรับ'?['ยอดยกมา','ยอดขาย','เบิกเงินกองทุน','อื่นๆ']:['เงินเดือน','ซื้อของ','คืนเงินกองทุน','อื่นๆ']);
@@ -393,16 +460,11 @@ function generateReport() {
     sortedData.forEach(r => {
         let d = new Date(r.date), amt = Number(r.amount)||0;
         let itemStr = String(r.item).trim();
-        
         let actualAmt = amt;
         
-        // ดักจับ 'ยอดยกมา' ให้คิดแค่ก้อนแรกสุด
         if (r.type === 'รายรับ' && itemStr === 'ยอดยกมา') {
-            if (!hasFoundInitialBF) { hasFoundInitialBF = true; } 
-            else { actualAmt = 0; } 
+            if (!hasFoundInitialBF) { hasFoundInitialBF = true; } else { actualAmt = 0; }
         }
-
-        // ดักจับ 'เงินโอน' ห้ามสะสมในกระแสเงินสดของร้าน
         if (r.type === 'รายรับ' && currentModule !== 'Fund' && r.method === 'เงินโอน') {
             actualAmt = 0; 
         }
@@ -422,7 +484,6 @@ function generateReport() {
     const f = n => (n||0).toLocaleString('th-TH', {minimumFractionDigits:2});
     
     if(currentModule === 'Fund') { 
-        // --- รูปแบบรายงาน Statement บัญชีกองทุน ---
         let bal = bf;
         let trs = monthData.map(r => {
             if(r.type === 'รายรับ') bal += Number(r.amount); else bal -= Number(r.amount);
@@ -442,7 +503,6 @@ function generateReport() {
             </table>
         </div>`;
     } else { 
-        // --- รูปแบบรายงาน ร้านกาแฟ / ผลิตภัณฑ์ (แก้ไขดักจับ "อื่นๆ" แล้ว) ---
         let sCash=0, sTrans=0, sOtherCash=0, sOtherTrans=0, sFund=0;
         let eGoods=0, eSal=0, eOther=0, eFund=0;
         
@@ -456,19 +516,16 @@ function generateReport() {
                 }
                 else if(itemStr.includes('กองทุน')) sFund += amt;
                 else { 
-                    // เก็บกวาดรายรับ "อื่นๆ"
-                    if(r.method === 'เงินโอน') sOtherTrans += amt;
-                    else sOtherCash += amt; 
+                    if(r.method === 'เงินโอน') sOtherTrans += amt; else sOtherCash += amt; 
                 }
             } else {
                 if(itemStr.includes('ซื้อของ')) eGoods += amt;
                 else if(itemStr === 'เงินเดือน') eSal += amt;
                 else if(itemStr.includes('คืนเงินกองทุน') || itemStr.includes('ถอนเงิน')) eFund += amt;
-                else eOther += amt; // เก็บกวาดรายจ่าย "อื่นๆ"
+                else eOther += amt; 
             }
         });
         
-        // รวมเงินให้ครบ
         let tSales = sCash + sTrans + sOtherCash + sOtherTrans; 
         let tExp = eGoods + eSal + eOther; 
         let net = tSales - tExp;
@@ -482,10 +539,8 @@ function generateReport() {
                 <tr style="background:#fff4cc; text-align:center;"><th colspan="2" style="border:1px solid #000; padding:8px;">รายรับ</th><th colspan="2" style="border:1px solid #000; padding:8px;">รายจ่าย</th></tr>
                 <tr><td style="border:1px solid #000; padding:8px; background:#ffdeb3;">ยอดยกมา</td><td style="border:1px solid #000; padding:8px; text-align:right; background:#ffdeb3;">${f(bf)}</td><td style="border:1px solid #000; padding:8px;">ค่าซื้อของ</td><td style="border:1px solid #000; padding:8px; text-align:right;">${f(eGoods)}</td></tr>
                 <tr><td style="border:1px solid #000; padding:8px;">ขาย (สด)</td><td style="border:1px solid #000; padding:8px; text-align:right;">${f(sCash)}</td><td style="border:1px solid #000; padding:8px;">เงินเดือน</td><td style="border:1px solid #000; padding:8px; text-align:right;">${f(eSal)}</td></tr>
-                
                 <tr><td style="border:1px solid #000; padding:8px;">ขาย (โอน)</td><td style="border:1px solid #000; padding:8px; text-align:right;">${f(sTrans)}</td><td style="border:1px solid #000; padding:8px;">รายจ่ายอื่นๆ</td><td style="border:1px solid #000; padding:8px; text-align:right;">${f(eOther)}</td></tr>
                 <tr><td style="border:1px solid #000; padding:8px;">รายรับอื่นๆ (สด: ${f(sOtherCash)} / โอน: ${f(sOtherTrans)})</td><td style="border:1px solid #000; padding:8px; text-align:right;">${f(sOtherCash + sOtherTrans)}</td><td style="border:1px solid #000; padding:8px;">คืนกองทุน</td><td style="border:1px solid #000; padding:8px; text-align:right;">${f(eFund)}</td></tr>
-                
                 <tr><td style="border:1px solid #000; padding:8px; background:#ffdeb3;">เบิกกองทุน</td><td style="border:1px solid #000; padding:8px; text-align:right; background:#ffdeb3;">${f(sFund)}</td><td style="border:1px solid #000; padding:8px;"></td><td style="border:1px solid #000; padding:8px;"></td></tr>
                 <tr style="background:#d4edda; font-weight:bold;"><td style="border:1px solid #000; padding:8px;">รวมรับสิ้น</td><td style="border:1px solid #000; padding:8px; text-align:right;">${f(bf+tSales+sFund)}</td><td style="border:1px solid #000; padding:8px;">รวมจ่ายทั้งสิ้น</td><td style="border:1px solid #000; padding:8px; text-align:right;">${f(tExp+eFund)}</td></tr>
                 <tr><td colspan="4" style="border:none; padding:10px;"></td></tr>
@@ -500,6 +555,5 @@ function generateReport() {
             </table>
         </div>`;
     }
-    
     document.getElementById('reportPreviewContainer').classList.remove('hidden');
 }
