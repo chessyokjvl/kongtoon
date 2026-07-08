@@ -11,7 +11,8 @@ let sortDesc = true; // true = ใหม่ไปเก่า, false = เก่
 let tomDept = null, tomObj = null;
 
 document.addEventListener('DOMContentLoaded', () => {
-    const sessionStr = sessionStorage.getItem('user');
+    // เช็ค Session ทั้ง 2 แบบ
+    const sessionStr = localStorage.getItem('user') || sessionStorage.getItem('user');
     if (!sessionStr) { window.location.href = 'index.html'; return; }
     currentUser = JSON.parse(sessionStr);
     
@@ -82,7 +83,11 @@ function switchModule(mod) {
     }
 }
 
-function logout() { sessionStorage.removeItem('user'); window.location.href = 'index.html'; }
+function logout() { 
+    localStorage.removeItem('user'); 
+    sessionStorage.removeItem('user'); 
+    window.location.href = 'index.html'; 
+}
 
 // =====================================
 // โมดูล: ทะเบียนรายการสนับสนุน
@@ -503,6 +508,7 @@ function generateReport() {
             </table>
         </div>`;
     } else { 
+        // --- รูปแบบรายงาน ร้านกาแฟ / ผลิตภัณฑ์ ---
         let sCash=0, sTrans=0, sOtherCash=0, sOtherTrans=0, sFund=0;
         let eGoods=0, eSal=0, eOther=0, eFund=0;
         
@@ -526,32 +532,36 @@ function generateReport() {
             }
         });
         
-        let tSales = sCash + sTrans + sOtherCash + sOtherTrans; 
-        let tExp = eGoods + eSal + eOther; 
-        let net = tSales - tExp;
-        let tMoney = net + bf + sFund; 
-        let cHand = tMoney - sTrans - sOtherTrans - eFund;
+        // --- คำนวณแบบแยกผลประกอบการ ---
+        let tSales = sCash + sTrans; // รายได้ดำเนินการ (ยอดขาย)
+        let tExp = eGoods + eSal; // ค่าใช้จ่ายดำเนินการ (ต้นทุน+เงินเดือน)
+        let net = tSales - tExp; // กำไรสุทธิจากผลประกอบการ
+        let tMoney = net + bf + sFund; // รวมเงินก่อนหัก/เพิ่มส่วนอื่นๆ
+        
+        // เงินสดในมือ = (รวมเงิน) + (รายรับอื่นๆเฉพาะเงินสด) - (รายจ่ายอื่นๆ) - (คืนกองทุน) - (หักเงินโอนของยอดขายออก)
+        let cHand = tMoney + sOtherCash - eOther - eFund - sTrans;
 
         pa.innerHTML = `<div style="font-family:'Sarabun'; color:#000;">
             <h2 style="text-align:center; font-size:22px; font-weight:bold;">สรุปรายรับ-รายจ่าย ${currentModule==='Cafe'?'ร้านกาแฟสุขใจ':'ร้านผลิตภัณฑ์ฯ'}</h2>
             <h3 style="text-align:center; font-size:18px; margin-bottom:20px;">ประจำเดือน ${mName} ${y+543}</h3>
             <table style="width:100%; border-collapse:collapse; font-size:15px;">
-                <tr style="background:#fff4cc; text-align:center;"><th colspan="2" style="border:1px solid #000; padding:8px;">รายรับ</th><th colspan="2" style="border:1px solid #000; padding:8px;">รายจ่าย</th></tr>
-                <tr><td style="border:1px solid #000; padding:8px; background:#ffdeb3;">ยอดยกมา</td><td style="border:1px solid #000; padding:8px; text-align:right; background:#ffdeb3;">${f(bf)}</td><td style="border:1px solid #000; padding:8px;">ค่าซื้อของ</td><td style="border:1px solid #000; padding:8px; text-align:right;">${f(eGoods)}</td></tr>
-                <tr><td style="border:1px solid #000; padding:8px;">ขาย (สด)</td><td style="border:1px solid #000; padding:8px; text-align:right;">${f(sCash)}</td><td style="border:1px solid #000; padding:8px;">เงินเดือน</td><td style="border:1px solid #000; padding:8px; text-align:right;">${f(eSal)}</td></tr>
-                <tr><td style="border:1px solid #000; padding:8px;">ขาย (โอน)</td><td style="border:1px solid #000; padding:8px; text-align:right;">${f(sTrans)}</td><td style="border:1px solid #000; padding:8px;">รายจ่ายอื่นๆ</td><td style="border:1px solid #000; padding:8px; text-align:right;">${f(eOther)}</td></tr>
-                <tr><td style="border:1px solid #000; padding:8px;">รายรับอื่นๆ (สด: ${f(sOtherCash)} / โอน: ${f(sOtherTrans)})</td><td style="border:1px solid #000; padding:8px; text-align:right;">${f(sOtherCash + sOtherTrans)}</td><td style="border:1px solid #000; padding:8px;">คืนกองทุน</td><td style="border:1px solid #000; padding:8px; text-align:right;">${f(eFund)}</td></tr>
-                <tr><td style="border:1px solid #000; padding:8px; background:#ffdeb3;">เบิกกองทุน</td><td style="border:1px solid #000; padding:8px; text-align:right; background:#ffdeb3;">${f(sFund)}</td><td style="border:1px solid #000; padding:8px;"></td><td style="border:1px solid #000; padding:8px;"></td></tr>
-                <tr style="background:#d4edda; font-weight:bold;"><td style="border:1px solid #000; padding:8px;">รวมรับสิ้น</td><td style="border:1px solid #000; padding:8px; text-align:right;">${f(bf+tSales+sFund)}</td><td style="border:1px solid #000; padding:8px;">รวมจ่ายทั้งสิ้น</td><td style="border:1px solid #000; padding:8px; text-align:right;">${f(tExp+eFund)}</td></tr>
+                <tr style="background:#fff4cc; text-align:center;"><th colspan="2" style="border:1px solid #000; padding:8px;">รายรับ (จากการดำเนินการ)</th><th colspan="2" style="border:1px solid #000; padding:8px;">รายจ่าย (จากการดำเนินการ)</th></tr>
+                <tr><td style="border:1px solid #000; padding:8px;">ขายสินค้า (เงินสด)</td><td style="border:1px solid #000; padding:8px; text-align:right;">${f(sCash)}</td><td style="border:1px solid #000; padding:8px;">ค่าซื้อของ/วัตถุดิบ</td><td style="border:1px solid #000; padding:8px; text-align:right;">${f(eGoods)}</td></tr>
+                <tr><td style="border:1px solid #000; padding:8px;">ขายสินค้า (เงินโอน)</td><td style="border:1px solid #000; padding:8px; text-align:right;">${f(sTrans)}</td><td style="border:1px solid #000; padding:8px;">เงินเดือน</td><td style="border:1px solid #000; padding:8px; text-align:right;">${f(eSal)}</td></tr>
                 <tr><td colspan="4" style="border:none; padding:10px;"></td></tr>
-                <tr><td colspan="2" style="border:1px solid #000; padding:8px;">รายได้ดำเนินงาน (ขาย + อื่นๆ)</td><td colspan="2" style="border:1px solid #000; padding:8px; text-align:right;"><u>${f(tSales)}</u></td></tr>
-                <tr><td colspan="2" style="border:1px solid #000; padding:8px;">หัก ค่าใช้จ่ายดำเนินงาน</td><td colspan="2" style="border:1px solid #000; padding:8px; text-align:right;"><u>${f(tExp)}</u></td></tr>
-                <tr style="background:#cce5ff; font-weight:bold;"><td colspan="2" style="border:1px solid #000; padding:8px;">กำไร/ขาดทุนสุทธิ</td><td colspan="2" style="border:1px solid #000; padding:8px; text-align:right; color:red;">${f(net)}</td></tr>
+                
+                <tr><td colspan="2" style="border:1px solid #000; padding:8px;">รายได้ดำเนินการ (ยอดขาย)</td><td colspan="2" style="border:1px solid #000; padding:8px; text-align:right;"><u>${f(tSales)}</u></td></tr>
+                <tr><td colspan="2" style="border:1px solid #000; padding:8px;">หัก ค่าใช้จ่ายดำเนินการ</td><td colspan="2" style="border:1px solid #000; padding:8px; text-align:right;"><u>${f(tExp)}</u></td></tr>
+                <tr style="background:#cce5ff; font-weight:bold;"><td colspan="2" style="border:1px solid #000; padding:8px;">กำไร/ขาดทุนสุทธิ (จากการดำเนินการ)</td><td colspan="2" style="border:1px solid #000; padding:8px; text-align:right; color:${net>=0?'#000':'red'};">${f(net)}</td></tr>
+                
                 <tr style="background:#ffdeb3;"><td colspan="2" style="border:1px solid #000; padding:8px;">บวก ยอดยกมา</td><td colspan="2" style="border:1px solid #000; padding:8px; text-align:right;"><u>${f(bf)}</u></td></tr>
-                <tr style="background:#ffdeb3;"><td colspan="2" style="border:1px solid #000; padding:8px;">บวก เบิกกองทุน</td><td colspan="2" style="border:1px solid #000; padding:8px; text-align:right;"><u>${f(sFund)}</u></td></tr>
+                <tr style="background:#ffdeb3;"><td colspan="2" style="border:1px solid #000; padding:8px;">บวก เบิกเงินจากกองทุน</td><td colspan="2" style="border:1px solid #000; padding:8px; text-align:right;"><u>${f(sFund)}</u></td></tr>
                 <tr style="background:#d4edda; font-weight:bold;"><td colspan="2" style="border:1px solid #000; padding:8px;">รวมเป็นเงินทั้งสิ้น</td><td colspan="2" style="border:1px solid #000; padding:8px; text-align:right;">${f(tMoney)}</td></tr>
-                <tr><td colspan="2" style="border:1px solid #000; padding:8px;">หัก คืนกองทุน</td><td colspan="2" style="border:1px solid #000; padding:8px; text-align:right;"><u>${f(eFund)}</u></td></tr>
-                <tr style="font-weight:bold;"><td colspan="2" style="border:1px solid #000; padding:8px;">คงเหลือเงินสดในมือ (หักยอดเงินโอนแล้ว)</td><td colspan="2" style="border:1px solid #000; padding:8px; text-align:right;">${f(cHand)}</td></tr>
+                
+                <tr><td colspan="2" style="border:1px solid #000; padding:8px;">บวก รายรับอื่นๆ (สด: ${f(sOtherCash)} / โอน: ${f(sOtherTrans)})</td><td colspan="2" style="border:1px solid #000; padding:8px; text-align:right;"><u>${f(sOtherCash + sOtherTrans)}</u></td></tr>
+                <tr><td colspan="2" style="border:1px solid #000; padding:8px;">หัก รายจ่ายอื่นๆ</td><td colspan="2" style="border:1px solid #000; padding:8px; text-align:right;"><u>${f(eOther)}</u></td></tr>
+                <tr><td colspan="2" style="border:1px solid #000; padding:8px;">หัก ส่งเงินคืนกองทุน</td><td colspan="2" style="border:1px solid #000; padding:8px; text-align:right;"><u>${f(eFund)}</u></td></tr>
+                <tr style="font-weight:bold; background:#f8f9fa;"><td colspan="2" style="border:1px solid #000; padding:8px;">คงเหลือเงินสดในมือ (หักยอดเงินโอนแล้ว)</td><td colspan="2" style="border:1px solid #000; padding:8px; text-align:right;">${f(cHand)}</td></tr>
             </table>
         </div>`;
     }
