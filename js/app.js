@@ -393,11 +393,16 @@ function generateReport() {
     sortedData.forEach(r => {
         let d = new Date(r.date), amt = Number(r.amount)||0;
         let itemStr = String(r.item).trim();
+        
         let actualAmt = amt;
         
+        // ดักจับ 'ยอดยกมา' ให้คิดแค่ก้อนแรกสุด
         if (r.type === 'รายรับ' && itemStr === 'ยอดยกมา') {
-            if (!hasFoundInitialBF) { hasFoundInitialBF = true; } else { actualAmt = 0; }
+            if (!hasFoundInitialBF) { hasFoundInitialBF = true; } 
+            else { actualAmt = 0; } 
         }
+
+        // ดักจับ 'เงินโอน' ห้ามสะสมในกระแสเงินสดของร้าน
         if (r.type === 'รายรับ' && currentModule !== 'Fund' && r.method === 'เงินโอน') {
             actualAmt = 0; 
         }
@@ -417,6 +422,7 @@ function generateReport() {
     const f = n => (n||0).toLocaleString('th-TH', {minimumFractionDigits:2});
     
     if(currentModule === 'Fund') { 
+        // --- รูปแบบรายงาน Statement บัญชีกองทุน ---
         let bal = bf;
         let trs = monthData.map(r => {
             if(r.type === 'รายรับ') bal += Number(r.amount); else bal -= Number(r.amount);
@@ -436,7 +442,10 @@ function generateReport() {
             </table>
         </div>`;
     } else { 
-        let sCash=0, sTrans=0, sFund=0, eGoods=0, eSal=0, eFund=0;
+        // --- รูปแบบรายงาน ร้านกาแฟ / ผลิตภัณฑ์ (แก้ไขดักจับ "อื่นๆ" แล้ว) ---
+        let sCash=0, sTrans=0, sOtherCash=0, sOtherTrans=0, sFund=0;
+        let eGoods=0, eSal=0, eOther=0, eFund=0;
+        
         monthData.forEach(r => {
             let amt = Number(r.amount)||0;
             let itemStr = String(r.item).trim();
@@ -446,15 +455,25 @@ function generateReport() {
                     else if(r.method === 'เงินโอน') sTrans += amt;
                 }
                 else if(itemStr.includes('กองทุน')) sFund += amt;
+                else { 
+                    // เก็บกวาดรายรับ "อื่นๆ"
+                    if(r.method === 'เงินโอน') sOtherTrans += amt;
+                    else sOtherCash += amt; 
+                }
             } else {
                 if(itemStr.includes('ซื้อของ')) eGoods += amt;
                 else if(itemStr === 'เงินเดือน') eSal += amt;
                 else if(itemStr.includes('คืนเงินกองทุน') || itemStr.includes('ถอนเงิน')) eFund += amt;
+                else eOther += amt; // เก็บกวาดรายจ่าย "อื่นๆ"
             }
         });
         
-        let tSales = sCash + sTrans; let tExp = eGoods + eSal; let net = tSales - tExp;
-        let tMoney = net + bf + sFund; let cHand = tMoney - sTrans - eFund;
+        // รวมเงินให้ครบ
+        let tSales = sCash + sTrans + sOtherCash + sOtherTrans; 
+        let tExp = eGoods + eSal + eOther; 
+        let net = tSales - tExp;
+        let tMoney = net + bf + sFund; 
+        let cHand = tMoney - sTrans - sOtherTrans - eFund;
 
         pa.innerHTML = `<div style="font-family:'Sarabun'; color:#000;">
             <h2 style="text-align:center; font-size:22px; font-weight:bold;">สรุปรายรับ-รายจ่าย ${currentModule==='Cafe'?'ร้านกาแฟสุขใจ':'ร้านผลิตภัณฑ์ฯ'}</h2>
@@ -463,18 +482,21 @@ function generateReport() {
                 <tr style="background:#fff4cc; text-align:center;"><th colspan="2" style="border:1px solid #000; padding:8px;">รายรับ</th><th colspan="2" style="border:1px solid #000; padding:8px;">รายจ่าย</th></tr>
                 <tr><td style="border:1px solid #000; padding:8px; background:#ffdeb3;">ยอดยกมา</td><td style="border:1px solid #000; padding:8px; text-align:right; background:#ffdeb3;">${f(bf)}</td><td style="border:1px solid #000; padding:8px;">ค่าซื้อของ</td><td style="border:1px solid #000; padding:8px; text-align:right;">${f(eGoods)}</td></tr>
                 <tr><td style="border:1px solid #000; padding:8px;">ขาย (สด)</td><td style="border:1px solid #000; padding:8px; text-align:right;">${f(sCash)}</td><td style="border:1px solid #000; padding:8px;">เงินเดือน</td><td style="border:1px solid #000; padding:8px; text-align:right;">${f(eSal)}</td></tr>
-                <tr><td style="border:1px solid #000; padding:8px;">ขาย (โอน)</td><td style="border:1px solid #000; padding:8px; text-align:right;">${f(sTrans)}</td><td style="border:1px solid #000; padding:8px;">คืนกองทุน</td><td style="border:1px solid #000; padding:8px; text-align:right;">${f(eFund)}</td></tr>
+                
+                <tr><td style="border:1px solid #000; padding:8px;">ขาย (โอน)</td><td style="border:1px solid #000; padding:8px; text-align:right;">${f(sTrans)}</td><td style="border:1px solid #000; padding:8px;">รายจ่ายอื่นๆ</td><td style="border:1px solid #000; padding:8px; text-align:right;">${f(eOther)}</td></tr>
+                <tr><td style="border:1px solid #000; padding:8px;">รายรับอื่นๆ (สด: ${f(sOtherCash)} / โอน: ${f(sOtherTrans)})</td><td style="border:1px solid #000; padding:8px; text-align:right;">${f(sOtherCash + sOtherTrans)}</td><td style="border:1px solid #000; padding:8px;">คืนกองทุน</td><td style="border:1px solid #000; padding:8px; text-align:right;">${f(eFund)}</td></tr>
+                
                 <tr><td style="border:1px solid #000; padding:8px; background:#ffdeb3;">เบิกกองทุน</td><td style="border:1px solid #000; padding:8px; text-align:right; background:#ffdeb3;">${f(sFund)}</td><td style="border:1px solid #000; padding:8px;"></td><td style="border:1px solid #000; padding:8px;"></td></tr>
                 <tr style="background:#d4edda; font-weight:bold;"><td style="border:1px solid #000; padding:8px;">รวมรับสิ้น</td><td style="border:1px solid #000; padding:8px; text-align:right;">${f(bf+tSales+sFund)}</td><td style="border:1px solid #000; padding:8px;">รวมจ่ายทั้งสิ้น</td><td style="border:1px solid #000; padding:8px; text-align:right;">${f(tExp+eFund)}</td></tr>
                 <tr><td colspan="4" style="border:none; padding:10px;"></td></tr>
-                <tr><td colspan="2" style="border:1px solid #000; padding:8px;">รายได้ขายรวม</td><td colspan="2" style="border:1px solid #000; padding:8px; text-align:right;"><u>${f(tSales)}</u></td></tr>
-                <tr><td colspan="2" style="border:1px solid #000; padding:8px;">หัก ค่าใช้จ่าย</td><td colspan="2" style="border:1px solid #000; padding:8px; text-align:right;"><u>${f(tExp)}</u></td></tr>
+                <tr><td colspan="2" style="border:1px solid #000; padding:8px;">รายได้ดำเนินงาน (ขาย + อื่นๆ)</td><td colspan="2" style="border:1px solid #000; padding:8px; text-align:right;"><u>${f(tSales)}</u></td></tr>
+                <tr><td colspan="2" style="border:1px solid #000; padding:8px;">หัก ค่าใช้จ่ายดำเนินงาน</td><td colspan="2" style="border:1px solid #000; padding:8px; text-align:right;"><u>${f(tExp)}</u></td></tr>
                 <tr style="background:#cce5ff; font-weight:bold;"><td colspan="2" style="border:1px solid #000; padding:8px;">กำไร/ขาดทุนสุทธิ</td><td colspan="2" style="border:1px solid #000; padding:8px; text-align:right; color:red;">${f(net)}</td></tr>
                 <tr style="background:#ffdeb3;"><td colspan="2" style="border:1px solid #000; padding:8px;">บวก ยอดยกมา</td><td colspan="2" style="border:1px solid #000; padding:8px; text-align:right;"><u>${f(bf)}</u></td></tr>
                 <tr style="background:#ffdeb3;"><td colspan="2" style="border:1px solid #000; padding:8px;">บวก เบิกกองทุน</td><td colspan="2" style="border:1px solid #000; padding:8px; text-align:right;"><u>${f(sFund)}</u></td></tr>
                 <tr style="background:#d4edda; font-weight:bold;"><td colspan="2" style="border:1px solid #000; padding:8px;">รวมเป็นเงินทั้งสิ้น</td><td colspan="2" style="border:1px solid #000; padding:8px; text-align:right;">${f(tMoney)}</td></tr>
                 <tr><td colspan="2" style="border:1px solid #000; padding:8px;">หัก คืนกองทุน</td><td colspan="2" style="border:1px solid #000; padding:8px; text-align:right;"><u>${f(eFund)}</u></td></tr>
-                <tr style="font-weight:bold;"><td colspan="2" style="border:1px solid #000; padding:8px;">คงเหลือเงินสดในมือ (หักโอน)</td><td colspan="2" style="border:1px solid #000; padding:8px; text-align:right;">${f(cHand)}</td></tr>
+                <tr style="font-weight:bold;"><td colspan="2" style="border:1px solid #000; padding:8px;">คงเหลือเงินสดในมือ (หักยอดเงินโอนแล้ว)</td><td colspan="2" style="border:1px solid #000; padding:8px; text-align:right;">${f(cHand)}</td></tr>
             </table>
         </div>`;
     }
